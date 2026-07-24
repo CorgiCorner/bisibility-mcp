@@ -1,0 +1,81 @@
+{
+  "name": "@bisibility/mcp",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server for the Bisibility REST API.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "Corgi Corner",
+  "keywords": ["bisibility", "mcp", "model-context-protocol", "rank-tracking", "seo", "typescript"],
+  "homepage": "https://bisibility.com",
+  "bugs": {
+    "url": "https://github.com/CorgiCorner/bisibility-mcp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CorgiCorner/bisibility-mcp.git"
+  },
+  "sideEffects": false,
+  "bin": {
+    "bisibility-mcp": "./dist/stdio.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./stdio": {
+      "types": "./dist/stdio.d.ts",
+      "import": "./dist/stdio.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "LICENSE", "README.md"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "22.23.1",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": ">=10.9.3 <11",
+      "onFail": "error"
+    }
+  },
+  "packageManager": "npm@10.9.3",
+  "scripts": {
+    "build": "tsup",
+    "check": "npm run check:node && npm run lint && npm run typecheck && npm test",
+    "check:node": "node tools/check-node.mjs",
+    "dev": "tsx src/stdio.ts",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "vitest run --coverage",
+    "sonar:up": "docker compose -f docker-compose.sonar.yml up -d sonarqube",
+    "sonar:scan": "docker compose -f docker-compose.sonar.yml run --rm scanner",
+    "sonar:check": "npm test && npm run sonar:scan",
+    "sonar:down": "docker compose -f docker-compose.sonar.yml down",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bisibility/sdk": "^0.1.2",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^22.18.11",
+    "@vitest/coverage-v8": "^3.2.4",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

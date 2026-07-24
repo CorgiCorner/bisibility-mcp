@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/CorgiCorner/bisibility-mcp/security/advisories/new
+    about: Report security issues privately instead of opening a public issue.
+  - name: Feature spec (bisibility hub)
+    url: https://github.com/CorgiCorner/bisibility/issues/new?template=feature_spec.yml
+    about: Feature specs for the whole product family, including this repository, are filed in the hub.
+  - name: Ideas and feedback (bisibility hub)
+    url: https://github.com/CorgiCorner/bisibility/discussions
+    about: Not a bug and not a fully formed spec yet? Start a discussion in the hub.
