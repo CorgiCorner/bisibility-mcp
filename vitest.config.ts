@@ -11,7 +11,7 @@ export default defineConfig({
   },
   test: {
     coverage: {
-      all: true,
+      // vitest 4 removed the `all` flag; including every file matched by `include` is the default.
       exclude: ["dist/**", "test/**", "src/stdio.ts", "*.config.ts"],
       include: ["src/**/*.ts"],
       provider: "v8",

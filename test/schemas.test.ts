@@ -56,6 +56,36 @@ describe("tool input schemas", () => {
     });
   });
 
+  it("rejects retired auto_schedule while accepting every schedule field", () => {
+    expect(() =>
+      keywordScheduleInput.parse({
+        auto_schedule: true,
+        cron_expression: null,
+        frequency: "daily",
+      }),
+    ).toThrow();
+    expect(() =>
+      updateProjectDefaultsInputSchema.parse({
+        auto_schedule: true,
+        frequency: "daily",
+        project_id: "prj_1",
+      }),
+    ).toThrow();
+    expect(
+      keywordScheduleInput.parse({
+        cron_expression: "0 7 * * 1",
+        frequency: "custom_cron",
+        jitter_minutes: 30,
+        timezone: "Europe/Warsaw",
+      }),
+    ).toEqual({
+      cron_expression: "0 7 * * 1",
+      frequency: "custom_cron",
+      jitter_minutes: 30,
+      timezone: "Europe/Warsaw",
+    });
+  });
+
   it("keeps all rank-check frequency schemas aligned with monthly support", () => {
     expect(rankCheckFrequencyInput.options).toEqual([
       "paused",

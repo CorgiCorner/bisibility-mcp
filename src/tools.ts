@@ -67,6 +67,7 @@ import {
   getKeywordMetricsInputSchema,
   getMeInputSchema,
   getNotificationPreferencesInputSchema,
+  getProjectDefaultsInputSchema,
   getProjectInputSchema,
   getRankCheckResultInputSchema,
   getRankHistoryInputSchema,
@@ -156,6 +157,7 @@ export type BisibilityToolClient = Pick<
   | "getMe"
   | "getNotificationPreferences"
   | "getProject"
+  | "getProjectDefaults"
   | "getProviderRates"
   | "getRankCheckResult"
   | "listAlertRules"
@@ -415,7 +417,6 @@ function schedulePayload(
   }
 
   return omitUndefined({
-    auto_schedule: schedule.auto_schedule,
     cron_expression: schedule.cron_expression,
     frequency: schedule.frequency,
     jitter_minutes: schedule.jitter_minutes,
@@ -502,7 +503,6 @@ function projectDefaultsPayload(
   input: ParsedToolInput<typeof updateProjectDefaultsInputSchema>,
 ): ProjectDefaultsPatch {
   return omitUndefined({
-    auto_schedule: input.auto_schedule,
     city: input.city,
     country: input.country,
     cron_expression: input.cron_expression,
@@ -935,12 +935,27 @@ export function registerBisibilityTools(
 
   registerTool(
     server,
+    "bisibility_get_project_defaults",
+    {
+      description:
+        "Get the effective rank-check schedule and SERP market defaults for a project. The " +
+        "response includes serp_depth, serp_stop_on_match, and source: explicit means the market " +
+        "was configured, derived means it was inferred from existing keywords, and fallback " +
+        "means the instance default was used.",
+      inputSchema: getProjectDefaultsInputSchema,
+      title: "Get project defaults",
+    },
+    async ({ project_id }) => client.getProjectDefaults(project_id),
+  );
+
+  registerTool(
+    server,
     "bisibility_update_project_defaults",
     {
       description:
         "Update the project default rank-check schedule and SERP market. The schedule is " +
-        "replaced as a whole: omitted schedule fields reset to their defaults (auto_schedule " +
-        "true, jitter 60, timezone UTC, no cron). Provide country and device together, or a " +
+        "replaced as a whole: omitted schedule fields reset to their defaults (jitter 60, " +
+        "timezone UTC, no cron). Provide country and device together, or a " +
         "location_key, to move the default SERP market. Use bisibility_search_locations and " +
         "pass its location_key verbatim for city-level tracking.",
       inputSchema: updateProjectDefaultsInputSchema,

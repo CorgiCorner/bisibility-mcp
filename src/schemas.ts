@@ -111,7 +111,6 @@ export const targetUrlInput = targetUrlValueInput.optional();
 
 export const keywordScheduleInput = z
   .object({
-    auto_schedule: z.boolean().optional(),
     cron_expression: z.string().trim().min(1).max(120).nullable(),
     frequency: rankCheckFrequencyInput,
     jitter_minutes: z.number().int().min(0).max(1440).optional(),
@@ -269,6 +268,12 @@ export const getProjectInputSchema = z
   })
   .strict();
 
+export const getProjectDefaultsInputSchema = z
+  .object({
+    project_id: idInput,
+  })
+  .strict();
+
 export const updateProjectInputSchema = z
   .object({
     ...requestOptionsInput,
@@ -292,7 +297,6 @@ export const deleteProjectInputSchema = z
 export const updateProjectDefaultsInputSchema = z
   .object({
     ...requestOptionsInput,
-    auto_schedule: z.boolean().optional(),
     city: nullableLimitedText(120),
     country: optionalLimitedText(120),
     cron_expression: z.string().trim().min(1).max(120).nullable().optional(),

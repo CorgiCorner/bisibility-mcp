@@ -112,6 +112,7 @@ Example using the package bin:
 - `bisibility_search_locations`
 - `bisibility_update_project`
 - `bisibility_delete_project`
+- `bisibility_get_project_defaults`
 - `bisibility_update_project_defaults`
 - `bisibility_list_keywords`
 - `bisibility_list_ranked_keyword_suggestions`

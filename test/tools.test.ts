@@ -54,6 +54,7 @@ const expectedToolNames = [
   "bisibility_search_locations",
   "bisibility_update_project",
   "bisibility_delete_project",
+  "bisibility_get_project_defaults",
   "bisibility_update_project_defaults",
   "bisibility_list_keywords",
   "bisibility_list_ranked_keyword_suggestions",
@@ -155,6 +156,7 @@ function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeo
     getMe: vi.fn(),
     getNotificationPreferences: vi.fn(),
     getProject: vi.fn(),
+    getProjectDefaults: vi.fn(),
     getProviderRates: vi.fn(),
     getRankCheckResult: vi.fn(),
     listAlertRules: vi.fn(),
@@ -398,6 +400,49 @@ describe("registerBisibilityTools", () => {
     expect(client.getProject).toHaveBeenCalledWith("prj_1");
   });
 
+  it("reads every project default field for the resolved project id", async () => {
+    const { callTool, client } = createToolHarness();
+    const defaults = projectDefaults();
+    client.getProjectDefaults.mockResolvedValueOnce(defaults);
+
+    const result = await callTool("bisibility_get_project_defaults", {
+      project_id: "prj_1",
+    });
+
+    expect(client.getProjectDefaults).toHaveBeenCalledWith("prj_1");
+    expect(parsedContent(result)).toEqual(defaults);
+    expect(result.structuredContent).toEqual(defaults);
+    expect(parsedContent(result)).toMatchObject({
+      serp_depth: 100,
+      serp_stop_on_match: false,
+      source: "explicit",
+    });
+  });
+
+  it("maps project defaults SDK errors", async () => {
+    const { callTool, client } = createToolHarness();
+    const error = Object.assign(new Error("Project defaults are unavailable."), {
+      name: "BisibilityApiError",
+      problem: { detail: "Not found" },
+      status: 404,
+    });
+    client.getProjectDefaults.mockRejectedValueOnce(error);
+
+    const result = await callTool("bisibility_get_project_defaults", {
+      project_id: "prj_missing",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(parsedContent(result)).toEqual({
+      error: {
+        message: "Project defaults are unavailable.",
+        name: "BisibilityApiError",
+        problem: { detail: "Not found" },
+        status: 404,
+      },
+    });
+  });
+
   it("searches canonical locations and documents location_key reuse", async () => {
     const { callTool, client, configs } = createToolHarness();
     const response = {
@@ -496,7 +541,6 @@ describe("registerBisibilityTools", () => {
     client.updateProjectDefaults.mockResolvedValue(projectDefaults());
 
     await callTool("bisibility_update_project_defaults", {
-      auto_schedule: true,
       country: "United States",
       cron_expression: null,
       device: "desktop",
@@ -516,7 +560,6 @@ describe("registerBisibilityTools", () => {
       1,
       "prj_1",
       {
-        auto_schedule: true,
         country: "United States",
         cron_expression: null,
         device: "desktop",

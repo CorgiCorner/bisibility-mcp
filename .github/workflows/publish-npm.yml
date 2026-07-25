@@ -1,0 +1,43 @@
+name: Publish npm
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish trusted package
+    if: >-
+      github.repository == 'CorgiCorner/bisibility-mcp' &&
+      vars.NPM_TRUSTED_PUBLISHING_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm
+
+    steps:
+      - name: Checkout public release
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Validate release with the development toolchain
+        run: |
+          (cd "$RUNNER_TEMP" && npm install --global npm@10.9.3)
+          npm ci
+          npm run check
+          npm run build
+          npm audit --audit-level=high
+          test "v$(node -p "require('./package.json').version")" = "${GITHUB_REF_NAME}"
+
+      - name: Publish through npm trusted publishing
+        run: |
+          (cd "$RUNNER_TEMP" && npm install --global npm@11.5.1)
+          npm --force publish --ignore-scripts --access public

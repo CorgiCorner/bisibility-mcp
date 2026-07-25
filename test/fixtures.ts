@@ -110,7 +110,6 @@ export function project(overrides: Partial<Project> = {}): Project {
 
 export function projectDefaults(overrides: Partial<ProjectDefaults> = {}): ProjectDefaults {
   return {
-    auto_schedule: true,
     city: null,
     country: "United States",
     cron_expression: null,
@@ -121,6 +120,9 @@ export function projectDefaults(overrides: Partial<ProjectDefaults> = {}): Proje
     location_key: "US",
     next_check_at: "2026-01-06T00:00:00.000Z",
     project_id: "prj_1",
+    serp_depth: 100,
+    serp_stop_on_match: false,
+    source: "explicit",
     timezone: "UTC",
     updated_at: "2026-01-05T00:00:00.000Z",
     ...overrides,
