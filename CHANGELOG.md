@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.1 - 2026-07-26
+
+- No tool or behaviour changes. This release ships a container image definition so the server
+  can be installed from the Docker MCP Catalog.
+
 ## 0.2.0 - 2026-07-26
 
 - Added a project defaults read tool that preserves market provenance and reports SERP depth and

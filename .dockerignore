@@ -1,0 +1,9 @@
+*
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsup.config.ts
+!src/
+!src/**
+!LICENSE
+!README.md

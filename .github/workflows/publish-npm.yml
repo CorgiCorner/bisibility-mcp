@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - "v*.*.*"
+  # Manual recovery path. An atomic branch-plus-tag push into the mirror occasionally does not
+  # emit a tag push event, leaving the tag present and this workflow never triggered. Re-run it
+  # by dispatching against the release TAG; the version check below rejects any other ref.
+  workflow_dispatch:
 
 permissions:
   contents: read
