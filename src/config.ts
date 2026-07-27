@@ -7,7 +7,36 @@ export interface BisibilityMcpEnv {
   BISIBILITY_API_KEY?: string;
   BISIBILITY_BASE_URL?: string;
   BISIBILITY_PROJECT_ID?: string;
+  BISIBILITY_MCP_READ_ONLY?: string;
+  BISIBILITY_MCP_TOOLSETS?: string;
   [key: string]: string | undefined;
+}
+
+export const BISIBILITY_MCP_TOOLSETS = [
+  "account",
+  "alerts",
+  "analytics",
+  "checks",
+  "competitors",
+  "keywords",
+  "notifications",
+  "projects",
+  "providers",
+  "rank-history",
+  "saved-views",
+  "signals",
+  "sitemaps",
+  "system",
+  "team",
+  "tokens",
+  "webhooks",
+] as const;
+
+export type BisibilityMcpToolset = (typeof BISIBILITY_MCP_TOOLSETS)[number];
+
+export interface BisibilityMcpToolConfig {
+  readOnly: boolean;
+  toolsets?: BisibilityMcpToolset[];
 }
 
 export interface BisibilityMcpConfig {
@@ -22,6 +51,43 @@ function cleanEnvValue(value: string | undefined) {
     return undefined;
   }
   return cleaned;
+}
+
+function isTruthyEnvValue(value: string | undefined) {
+  const normalized = cleanEnvValue(value)?.toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+function readToolsets(value: string | undefined): BisibilityMcpToolset[] | undefined {
+  const configured = cleanEnvValue(value);
+  if (!configured) {
+    return undefined;
+  }
+
+  const requested = [...new Set(configured.split(",").map((toolset) => toolset.trim()))].filter(
+    Boolean,
+  );
+  const valid = new Set<string>(BISIBILITY_MCP_TOOLSETS);
+  const unknown = requested.filter((toolset) => !valid.has(toolset));
+  if (unknown.length) {
+    throw new Error(
+      `Unknown BISIBILITY_MCP_TOOLSETS value${unknown.length === 1 ? "" : "s"}: ${unknown.join(
+        ", ",
+      )}. Valid toolsets: ${BISIBILITY_MCP_TOOLSETS.join(", ")}.`,
+    );
+  }
+
+  return requested as BisibilityMcpToolset[];
+}
+
+export function readBisibilityMcpToolConfig(
+  env: BisibilityMcpEnv = process.env,
+): BisibilityMcpToolConfig {
+  const toolsets = readToolsets(env.BISIBILITY_MCP_TOOLSETS);
+  return {
+    readOnly: isTruthyEnvValue(env.BISIBILITY_MCP_READ_ONLY),
+    ...(toolsets ? { toolsets } : {}),
+  };
 }
 
 export function readBisibilityMcpConfig(env: BisibilityMcpEnv = process.env): BisibilityMcpConfig {

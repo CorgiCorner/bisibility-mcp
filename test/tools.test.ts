@@ -2,7 +2,11 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { BisibilityToolClient } from "../src/index.js";
+import type {
+  BisibilityMcpToolset,
+  BisibilityToolClient,
+  RegisterBisibilityToolsOptions,
+} from "../src/index.js";
 import { registerBisibilityTools } from "../src/index.js";
 import {
   activeMigrationToken,
@@ -211,9 +215,19 @@ function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeo
   };
 }
 
-function createToolHarness() {
+function createToolHarness(
+  options: Pick<RegisterBisibilityToolsOptions, "readOnly" | "toolsets"> = {},
+) {
   const tools = new Map<string, ToolHandler>();
-  const configs = new Map<string, { description: string; inputSchema: object; title: string }>();
+  const configs = new Map<
+    string,
+    {
+      annotations: { destructiveHint: boolean; readOnlyHint: boolean };
+      description: string;
+      inputSchema: object;
+      title: string;
+    }
+  >();
   const server = {
     registerTool: vi.fn((name: string, config: never, handler: ToolHandler) => {
       configs.set(name, config);
@@ -222,7 +236,10 @@ function createToolHarness() {
   };
   const client = createClientMock();
 
-  registerBisibilityTools(server as never, { client: client as unknown as BisibilityToolClient });
+  registerBisibilityTools(server as never, {
+    client: client as unknown as BisibilityToolClient,
+    ...options,
+  });
 
   const callTool = async (name: string, input: unknown = {}) => {
     const handler = tools.get(name);
@@ -250,6 +267,86 @@ describe("registerBisibilityTools", () => {
       title: "Add keywords",
     });
     expect(configs.get("bisibility_list_keywords")?.inputSchema).toHaveProperty("project_id");
+  });
+
+  it("registers only read tools in read-only mode", () => {
+    const { tools } = createToolHarness({ readOnly: true });
+    const mutatingPrefixes = [
+      "bisibility_create_",
+      "bisibility_update_",
+      "bisibility_delete_",
+      "bisibility_remove_",
+      "bisibility_revoke_",
+      "bisibility_set_",
+      "bisibility_add_",
+      "bisibility_bulk_",
+      "bisibility_run_",
+      "bisibility_sync_",
+      "bisibility_enable_",
+      "bisibility_disable_",
+      "bisibility_connect_",
+      "bisibility_disconnect_",
+      "bisibility_mint_",
+      "bisibility_mark_",
+      "bisibility_mute_",
+      "bisibility_resend_",
+    ];
+
+    expect(tools.size).toBe(34);
+    expect(
+      [...tools.keys()].filter((name) =>
+        mutatingPrefixes.some((prefix) => name.startsWith(prefix)),
+      ),
+    ).toEqual([]);
+    expect(tools.has("bisibility_research_keywords")).toBe(false);
+    expect(tools.has("bisibility_get_keyword_metrics")).toBe(false);
+  });
+
+  it("registers only tools from selected API-domain toolsets", () => {
+    const { tools } = createToolHarness({ toolsets: ["rank-history"] });
+
+    expect([...tools.keys()]).toEqual([
+      "bisibility_get_rank_history",
+      "bisibility_export_rank_history",
+    ]);
+  });
+
+  it("composes read-only mode with toolset filtering", () => {
+    const selectedToolsets = ["keywords", "rank-history"] satisfies BisibilityMcpToolset[];
+    const { tools } = createToolHarness({
+      readOnly: true,
+      toolsets: selectedToolsets,
+    });
+
+    expect([...tools.keys()]).toEqual([
+      "bisibility_search_locations",
+      "bisibility_list_keywords",
+      "bisibility_list_ranked_keyword_suggestions",
+      "bisibility_get_keyword",
+      "bisibility_get_rank_history",
+      "bisibility_export_rank_history",
+    ]);
+  });
+
+  it("annotates read, write, and destructive tools from their classifications", () => {
+    const { configs } = createToolHarness();
+
+    expect(configs.get("bisibility_list_keywords")?.annotations).toEqual({
+      destructiveHint: false,
+      readOnlyHint: true,
+    });
+    expect(configs.get("bisibility_create_project")?.annotations).toEqual({
+      destructiveHint: false,
+      readOnlyHint: false,
+    });
+    expect(configs.get("bisibility_delete_project")?.annotations).toEqual({
+      destructiveHint: true,
+      readOnlyHint: false,
+    });
+    expect(configs.get("bisibility_bulk_update_keywords")?.annotations).toEqual({
+      destructiveHint: true,
+      readOnlyHint: false,
+    });
   });
 
   it("documents every registered tool in the README", () => {

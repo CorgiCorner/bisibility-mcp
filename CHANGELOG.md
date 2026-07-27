@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.3.0 - 2026-07-27
+
+- Added `BISIBILITY_MCP_READ_ONLY` to register only read tools, so mutating tools are absent
+  from the tool list rather than refused on call.
+- Added `BISIBILITY_MCP_TOOLSETS` to register only the named tool groups. An unknown group now
+  fails startup and lists the valid names.
+- Added `readOnlyHint` and `destructiveHint` annotations so clients that support them can ask
+  for confirmation before destructive calls.
+- Documented the security model, including the destructive tool surface and prompt-injection
+  exposure through API-returned content.
+
 ## 0.2.1 - 2026-07-26
 
 - No tool or behaviour changes. This release ships a container image definition so the server

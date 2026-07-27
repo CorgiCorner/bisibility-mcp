@@ -42,6 +42,7 @@ import type {
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type * as z from "zod/v4";
 
+import type { BisibilityMcpToolset } from "./config.js";
 import { errorToolResult, jsonToolResult } from "./result.js";
 import {
   addCompetitorInputSchema,
@@ -213,6 +214,8 @@ export type BisibilityToolClient = Pick<
 
 export interface RegisterBisibilityToolsOptions {
   client: BisibilityToolClient;
+  readOnly?: boolean;
+  toolsets?: readonly BisibilityMcpToolset[];
 }
 
 type ToolSchema = z.ZodObject<z.ZodRawShape>;
@@ -745,14 +748,38 @@ function toolHandler<TSchema extends ToolSchema>(schema: TSchema, execute: ToolE
 }
 
 function registerTool<TSchema extends ToolSchema>(
-  server: McpServer,
+  registration: {
+    options: {
+      readOnly: boolean;
+      toolsets?: readonly BisibilityMcpToolset[];
+    };
+    server: McpServer;
+  },
   name: string,
-  config: { description: string; inputSchema: TSchema; title: string },
+  config: {
+    access: "read" | "write";
+    description: string;
+    destructive?: boolean;
+    group: BisibilityMcpToolset;
+    inputSchema: TSchema;
+    title: string;
+  },
   execute: ToolExecutor<TSchema>,
 ) {
-  server.registerTool(
+  if (
+    (registration.options.readOnly && config.access === "write") ||
+    (registration.options.toolsets && !registration.options.toolsets.includes(config.group))
+  ) {
+    return;
+  }
+
+  registration.server.registerTool(
     name,
     {
+      annotations: {
+        destructiveHint: config.destructive ?? false,
+        readOnlyHint: config.access === "read",
+      },
       description: config.description,
       inputSchema: config.inputSchema.shape,
       title: config.title,
@@ -766,11 +793,20 @@ export function registerBisibilityTools(
   options: RegisterBisibilityToolsOptions,
 ) {
   const { client } = options;
+  const registration = {
+    options: {
+      readOnly: options.readOnly ?? false,
+      ...(options.toolsets ? { toolsets: options.toolsets } : {}),
+    },
+    server,
+  };
 
   registerTool(
-    server,
+    registration,
     "bisibility_get_health",
     {
+      access: "read",
+      group: "system",
       description: "Check Bisibility API health and configured SERP providers.",
       inputSchema: emptyInputSchema,
       title: "Get API health",
@@ -779,9 +815,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_get_capabilities",
     {
+      access: "read",
+      group: "system",
       description: "List the public Bisibility API capabilities exposed for agent workflows.",
       inputSchema: emptyInputSchema,
       title: "Get API capabilities",
@@ -790,9 +828,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_get_cloud_import_compatibility",
     {
+      access: "read",
+      group: "system",
       description:
         "Check whether a cloud export package can be imported: returns the running app version, " +
         "the latest applied migration, and the cloud-import schema versions the API accepts. " +
@@ -805,9 +845,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_get_provider_rates",
     {
+      access: "read",
+      group: "providers",
       description:
         "List public provider rate cards used for rank-check cost estimates. Each rate card is " +
         "either flat-priced (per-check options such as standard, priority, live) or plan-priced " +
@@ -819,9 +861,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_get_cost_estimate",
     {
+      access: "read",
+      group: "providers",
       description:
         "Estimate the monthly rank-check cost for a keyword portfolio using the public provider " +
         "rate cards. Provide the keyword count plus optional devices per keyword (1-2), " +
@@ -835,9 +879,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_get_me",
     {
+      access: "read",
+      group: "account",
       description:
         "Get the authenticated user and all project memberships. Requires a personal access token.",
       inputSchema: getMeInputSchema,
@@ -847,9 +893,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_update_me",
     {
+      access: "write",
+      group: "account",
       description: "Update the authenticated user's display name. Requires a write PAT.",
       inputSchema: updateMeInputSchema,
       title: "Update authenticated user",
@@ -859,9 +907,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_projects",
     {
+      access: "read",
+      group: "projects",
       description:
         "List projects visible to the configured credential. Project keys return one project; " +
         "personal access tokens return all project memberships.",
@@ -874,9 +924,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_create_project",
     {
+      access: "write",
+      group: "projects",
       description: "Create a project. Requires a personal access token with write scope.",
       inputSchema: createProjectInputSchema,
       title: "Create project",
@@ -885,9 +937,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_get_project",
     {
+      access: "read",
+      group: "projects",
       description: "Get one Bisibility project by project id.",
       inputSchema: getProjectInputSchema,
       title: "Get project",
@@ -896,9 +950,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_search_locations",
     {
+      access: "read",
+      group: "keywords",
       description:
         "Search canonical keyword locations. Use the returned location_key verbatim when " +
         "creating or updating keywords for city-level tracking.",
@@ -909,9 +965,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_update_project",
     {
+      access: "write",
+      group: "projects",
       description: "Update a project's name or domain. At least one of name or domain is required.",
       inputSchema: updateProjectInputSchema,
       title: "Update project",
@@ -921,9 +979,12 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_delete_project",
     {
+      access: "write",
+      destructive: true,
+      group: "projects",
       description:
         "Permanently delete a project and all of its keywords, rank history, and settings. " +
         "This cannot be undone. Use only after the user confirms deletion.",
@@ -934,9 +995,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_get_project_defaults",
     {
+      access: "read",
+      group: "projects",
       description:
         "Get the effective rank-check schedule and SERP market defaults for a project. The " +
         "response includes serp_depth, serp_stop_on_match, and source: explicit means the market " +
@@ -949,9 +1012,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_update_project_defaults",
     {
+      access: "write",
+      group: "projects",
       description:
         "Update the project default rank-check schedule and SERP market. The schedule is " +
         "replaced as a whole: omitted schedule fields reset to their defaults (jitter 60, " +
@@ -970,9 +1035,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_keywords",
     {
+      access: "read",
+      group: "keywords",
       description: "List keywords for a project with pagination, search, filters, and sorting.",
       inputSchema: listKeywordsInputSchema,
       title: "List project keywords",
@@ -981,9 +1048,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_ranked_keyword_suggestions",
     {
+      access: "read",
+      group: "keywords",
       description:
         "Paid provider lookup on the project's own DataForSEO account, about $0.02 per " +
         "100-keyword page on a cache miss. Results are cached for 12 hours and shared with " +
@@ -999,9 +1068,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_research_keywords",
     {
+      access: "write",
+      group: "keywords",
       description:
         "Requires API write scope. Paid keyword research uses the project's own DataForSEO " +
         "account. When cost matters, call with estimate_only first for a free dry run, then use " +
@@ -1017,9 +1088,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_get_keyword_metrics",
     {
+      access: "write",
+      group: "keywords",
       description:
         "Requires API write scope. Paid metrics lookup uses the project's own DataForSEO account. " +
         "When cost matters, call with estimate_only first for a free dry run, then use " +
@@ -1034,9 +1107,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_add_keywords",
     {
+      access: "write",
+      group: "keywords",
       description:
         "Add one or more keywords to a project, optionally with tags, target URL, and schedule. " +
         "Use bisibility_search_locations and pass its location_key verbatim for city-level tracking.",
@@ -1048,9 +1123,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_get_keyword",
     {
+      access: "read",
+      group: "keywords",
       description: "Get a keyword and its latest rank position by keyword id.",
       inputSchema: getKeywordInputSchema,
       title: "Get keyword",
@@ -1064,9 +1141,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_update_keyword",
     {
+      access: "write",
+      group: "keywords",
       description:
         "Update keyword metadata such as text, country, device, target URL, tags, or schedule. " +
         "Use bisibility_search_locations and pass its location_key verbatim for city-level tracking.",
@@ -1082,9 +1161,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_set_keyword_target_url",
     {
+      access: "write",
+      group: "keywords",
       description: "Set or clear the target URL used when evaluating a keyword ranking.",
       inputSchema: setKeywordTargetUrlInputSchema,
       title: "Set keyword target URL",
@@ -1098,9 +1179,12 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_delete_keyword",
     {
+      access: "write",
+      destructive: true,
+      group: "keywords",
       description: "Delete one keyword by keyword id. Use only after the user confirms deletion.",
       inputSchema: deleteKeywordInputSchema,
       title: "Delete keyword",
@@ -1109,9 +1193,12 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_bulk_update_keywords",
     {
+      access: "write",
+      destructive: true,
+      group: "keywords",
       description:
         "Bulk mutate keywords by adding tags, removing tags, setting frequency, setting target URL, or deleting.",
       inputSchema: keywordBulkInputSchema,
@@ -1122,9 +1209,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_run_rank_check",
     {
+      access: "write",
+      group: "checks",
       description:
         "Run a rank check for one keyword. By default the check runs synchronously and returns " +
         "the completed result. Set async to true to enqueue the check and return a running rank " +
@@ -1142,9 +1231,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_get_rank_history",
     {
+      access: "read",
+      group: "rank-history",
       description:
         "List historical rank checks for a keyword with date, status, and pagination filters.",
       inputSchema: getRankHistoryInputSchema,
@@ -1159,9 +1250,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_export_rank_history",
     {
+      access: "read",
+      group: "rank-history",
       description:
         "Export project rank history as cursor-paginated JSON for reports and analysis. " +
         "For full streamed CSV dumps, use the REST endpoint directly.",
@@ -1172,9 +1265,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_sitemap_monitors",
     {
+      access: "read",
+      group: "sitemaps",
       description:
         "List the project sitemap monitor, including its status and latest snapshot summary.",
       inputSchema: listSitemapMonitorsInputSchema,
@@ -1184,9 +1279,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_enable_sitemap_monitor",
     {
+      access: "write",
+      group: "sitemaps",
       description:
         "Enable the project sitemap monitor. The next scheduled worker sync fetches the sitemap; enabling does not fetch immediately.",
       inputSchema: updateSitemapMonitorInputSchema,
@@ -1202,9 +1299,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_disable_sitemap_monitor",
     {
+      access: "write",
+      group: "sitemaps",
       description: "Disable the project sitemap monitor while retaining its existing snapshots.",
       inputSchema: updateSitemapMonitorInputSchema,
       title: "Disable sitemap monitor",
@@ -1219,9 +1318,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_get_rank_check_result",
     {
+      access: "read",
+      group: "checks",
       description: "Get one rank check result by check id.",
       inputSchema: getRankCheckResultInputSchema,
       title: "Get rank check result",
@@ -1235,9 +1336,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_create_signal",
     {
+      access: "write",
+      group: "signals",
       description:
         "Ingest a signal for the key-scoped project: an external event such as a deploy, CMS " +
         "content change, or custom API event that may explain ranking movements. source must " +
@@ -1252,9 +1355,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_signals",
     {
+      access: "read",
+      group: "signals",
       description:
         "List signals for a project, newest first. Filter by source (including system sources " +
         "such as rank_tracker or search_analytics), exact type, and a happened-at date range " +
@@ -1266,9 +1371,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_traffic_snapshots",
     {
+      access: "read",
+      group: "analytics",
       description:
         "List stored page traffic snapshots collected from the project's own connected analytics " +
         "accounts, filtered by date range and optional page paths.",
@@ -1280,9 +1387,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_search_performance_query_stats",
     {
+      access: "read",
+      group: "analytics",
       description:
         "Fetch live query statistics from one of the project's own connected search-performance " +
         "accounts. Provider rate limits and reauthorization rules apply.",
@@ -1297,9 +1406,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_sync_project_traffic",
     {
+      access: "write",
+      group: "analytics",
       description:
         "Synchronize traffic snapshots from the project's own connected analytics accounts now. " +
         "Provider rate limits and connection authorization rules apply.",
@@ -1310,9 +1421,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_api_keys",
     {
+      access: "read",
+      group: "tokens",
       description: "List API keys for the authenticated project, including revoked keys.",
       inputSchema: listApiKeysInputSchema,
       title: "List API keys",
@@ -1326,9 +1439,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_create_api_key",
     {
+      access: "write",
+      group: "tokens",
       description:
         "Create a new API key for the authenticated project. The raw token is returned once in " +
         "the response and cannot be retrieved again; store it securely.",
@@ -1339,9 +1454,12 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_revoke_api_key",
     {
+      access: "write",
+      destructive: true,
+      group: "tokens",
       description:
         "Revoke an API key by key id. Revocation is immediate and cannot be undone; revoking " +
         "the key this server is configured with locks the server out. Use only after the user " +
@@ -1353,9 +1471,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_project_api_keys",
     {
+      access: "read",
+      group: "tokens",
       description: "List API keys scoped to a specific project, including revoked keys.",
       inputSchema: listProjectApiKeysInputSchema,
       title: "List project API keys",
@@ -1364,9 +1484,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_create_project_api_key",
     {
+      access: "write",
+      group: "tokens",
       description:
         "Create a project-scoped API key for CI or automation. The raw key is returned once.",
       inputSchema: createProjectApiKeyInputSchema,
@@ -1377,9 +1499,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_personal_tokens",
     {
+      access: "read",
+      group: "tokens",
       description: "List the user's personal access tokens. Requires an admin PAT.",
       inputSchema: listPersonalTokensInputSchema,
       title: "List personal tokens",
@@ -1388,9 +1512,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_create_personal_token",
     {
+      access: "write",
+      group: "tokens",
       description:
         "Create a personal access token. The raw account-wide token is returned once. Requires an admin PAT.",
       inputSchema: createPersonalTokenInputSchema,
@@ -1400,9 +1526,12 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_revoke_personal_token",
     {
+      access: "write",
+      destructive: true,
+      group: "tokens",
       description:
         'Revoke a personal token by id, or pass "current" to revoke the configured token.',
       inputSchema: revokePersonalTokenInputSchema,
@@ -1412,9 +1541,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_webhooks",
     {
+      access: "read",
+      group: "webhooks",
       description: "List webhook endpoints for a project.",
       inputSchema: listWebhooksInputSchema,
       title: "List webhooks",
@@ -1423,9 +1554,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_create_webhook",
     {
+      access: "write",
+      group: "webhooks",
       description: "Create a webhook endpoint. The HMAC secret is write-only.",
       inputSchema: createWebhookInputSchema,
       title: "Create webhook",
@@ -1435,9 +1568,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_update_webhook",
     {
+      access: "write",
+      group: "webhooks",
       description: "Update a webhook endpoint or rotate its write-only HMAC secret.",
       inputSchema: updateWebhookInputSchema,
       title: "Update webhook",
@@ -1452,9 +1587,12 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_delete_webhook",
     {
+      access: "write",
+      destructive: true,
+      group: "webhooks",
       description: "Delete a webhook endpoint. Requires admin access.",
       inputSchema: deleteWebhookInputSchema,
       title: "Delete webhook",
@@ -1464,9 +1602,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_alert_rules",
     {
+      access: "read",
+      group: "alerts",
       description: "List alert rules for a project.",
       inputSchema: listAlertRulesInputSchema,
       title: "List alert rules",
@@ -1475,9 +1615,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_create_alert_rule",
     {
+      access: "write",
+      group: "alerts",
       description:
         "Create an alert rule for project rank changes, thresholds, SERP features, or competitors.",
       inputSchema: createAlertRuleInputSchema,
@@ -1488,9 +1630,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_update_alert_rule",
     {
+      access: "write",
+      group: "alerts",
       description:
         "Update an alert rule by rule id. The API replaces the whole rule configuration, so " +
         "name and condition_type are required even when updating a single field.",
@@ -1506,9 +1650,12 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_delete_alert_rule",
     {
+      access: "write",
+      destructive: true,
+      group: "alerts",
       description: "Delete an alert rule by rule id. Use only after the user confirms deletion.",
       inputSchema: deleteAlertRuleInputSchema,
       title: "Delete alert rule",
@@ -1517,9 +1664,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_triggered_alerts",
     {
+      access: "read",
+      group: "alerts",
       description: "List triggered alerts for a project.",
       inputSchema: listTriggeredAlertsInputSchema,
       title: "List triggered alerts",
@@ -1528,9 +1677,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_mute_triggered_alert",
     {
+      access: "write",
+      group: "alerts",
       description:
         "Mute one firing alert for 24 hours. This changes shared alert state for the whole project team.",
       inputSchema: muteTriggeredAlertInputSchema,
@@ -1541,9 +1692,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_mark_project_alerts_read",
     {
+      access: "write",
+      group: "alerts",
       description: "Mark every firing alert in the project as read for the whole project team.",
       inputSchema: markProjectAlertsReadInputSchema,
       title: "Mark project alerts read",
@@ -1552,9 +1705,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_team_members",
     {
+      access: "read",
+      group: "team",
       description: "List team members for a project.",
       inputSchema: listTeamMembersInputSchema,
       title: "List team members",
@@ -1563,9 +1718,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_team_invites",
     {
+      access: "read",
+      group: "team",
       description: "List pending team invites for a project.",
       inputSchema: listTeamInvitesInputSchema,
       title: "List team invites",
@@ -1574,9 +1731,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_create_team_invite",
     {
+      access: "write",
+      group: "team",
       description: "Invite a user to a project team with an admin, member, or viewer role.",
       inputSchema: createTeamInviteInputSchema,
       title: "Create team invite",
@@ -1586,9 +1745,12 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_revoke_team_invite",
     {
+      access: "write",
+      destructive: true,
+      group: "team",
       description: "Revoke a pending project team invite.",
       inputSchema: revokeTeamInviteInputSchema,
       title: "Revoke team invite",
@@ -1598,9 +1760,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_resend_team_invite",
     {
+      access: "write",
+      group: "team",
       description: "Resend a pending team invitation and replace its expiration and token.",
       inputSchema: resendTeamInviteInputSchema,
       title: "Resend team invite",
@@ -1610,9 +1774,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_update_team_member_role",
     {
+      access: "write",
+      group: "team",
       description:
         "Change a non-owner project member role to admin, member, or viewer. Ownership transfer " +
         "remains UI-only.",
@@ -1629,9 +1795,12 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_remove_team_member",
     {
+      access: "write",
+      destructive: true,
+      group: "team",
       description:
         "Permanently remove a non-owner project member. Confirm the user's intent before calling this tool.",
       inputSchema: removeTeamMemberInputSchema,
@@ -1642,9 +1811,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_providers",
     {
+      access: "read",
+      group: "providers",
       description: "List provider connection options and status for a project.",
       inputSchema: listProvidersInputSchema,
       title: "List providers",
@@ -1653,9 +1824,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_connect_provider",
     {
+      access: "write",
+      group: "providers",
       description:
         "Connect or update credentials for a project provider. SERP providers are dataforseo " +
         "and serpapi; analytics providers are ga4, gsc, and plausible. Self-hosted providers " +
@@ -1673,9 +1846,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_test_provider_connection",
     {
+      access: "read",
+      group: "providers",
       description:
         "Test provider credentials or the saved provider connection. Self-hosted providers " +
         "such as Plausible accept an optional credentials.endpoint base URL.",
@@ -1691,9 +1866,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_update_provider_settings",
     {
+      access: "write",
+      group: "providers",
       description: "Update provider settings such as enabled state, priority, or primary status.",
       inputSchema: updateProviderSettingsInputSchema,
       title: "Update provider settings",
@@ -1708,9 +1885,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_set_provider_enabled",
     {
+      access: "write",
+      group: "providers",
       description: "Enable or disable a provider for a project.",
       inputSchema: setProviderEnabledInputSchema,
       title: "Set provider enabled",
@@ -1725,9 +1904,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_set_provider_priority",
     {
+      access: "write",
+      group: "providers",
       description: "Set provider priority for a project. Lower numbers are preferred first.",
       inputSchema: setProviderPriorityInputSchema,
       title: "Set provider priority",
@@ -1742,9 +1923,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_set_primary_provider",
     {
+      access: "write",
+      group: "providers",
       description: "Set or clear a provider as the primary project provider.",
       inputSchema: setPrimaryProviderInputSchema,
       title: "Set primary provider",
@@ -1759,9 +1942,12 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_disconnect_provider",
     {
+      access: "write",
+      destructive: true,
+      group: "providers",
       description:
         "Disconnect a provider from a project. Use only after the user confirms deletion.",
       inputSchema: providerActionInputSchema,
@@ -1772,9 +1958,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_saved_views",
     {
+      access: "read",
+      group: "saved-views",
       description: "List saved keyword views for a project.",
       inputSchema: listSavedViewsInputSchema,
       title: "List saved views",
@@ -1783,9 +1971,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_create_saved_view",
     {
+      access: "write",
+      group: "saved-views",
       description:
         "Create a saved keyword view for a project. Known country filter values: 'all' or a " +
         "supported market country code such as us, gb, ca, au, de, fr, es, it, nl, se, pl. " +
@@ -1799,9 +1989,12 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_delete_saved_view",
     {
+      access: "write",
+      destructive: true,
+      group: "saved-views",
       description: "Delete a project saved view. Use only after the user confirms deletion.",
       inputSchema: deleteSavedViewInputSchema,
       title: "Delete saved view",
@@ -1810,9 +2003,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_competitors",
     {
+      access: "read",
+      group: "competitors",
       description: "List tracked competitors, market data, and suggestions for a project.",
       inputSchema: listCompetitorsInputSchema,
       title: "List competitors",
@@ -1821,9 +2016,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_add_competitor",
     {
+      access: "write",
+      group: "competitors",
       description: "Add a tracked competitor domain to a project.",
       inputSchema: addCompetitorInputSchema,
       title: "Add competitor",
@@ -1833,9 +2030,12 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_remove_competitor",
     {
+      access: "write",
+      destructive: true,
+      group: "competitors",
       description: "Remove a tracked competitor from a project.",
       inputSchema: removeCompetitorInputSchema,
       title: "Remove competitor",
@@ -1845,9 +2045,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_get_notification_preferences",
     {
+      access: "read",
+      group: "notifications",
       description: "Get notification preferences for a project.",
       inputSchema: getNotificationPreferencesInputSchema,
       title: "Get notification preferences",
@@ -1856,9 +2058,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_update_notification_preferences",
     {
+      access: "write",
+      group: "notifications",
       description: "Update project notification preferences.",
       inputSchema: updateNotificationPreferencesInputSchema,
       title: "Update notification preferences",
@@ -1872,9 +2076,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_list_migration_tokens",
     {
+      access: "read",
+      group: "tokens",
       description: "List active migration tokens for a project.",
       inputSchema: listMigrationTokensInputSchema,
       title: "List migration tokens",
@@ -1883,9 +2089,11 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_mint_migration_token",
     {
+      access: "write",
+      group: "tokens",
       description: "Mint a migration token for a project.",
       inputSchema: mintMigrationTokenInputSchema,
       title: "Mint migration token",
@@ -1899,9 +2107,12 @@ export function registerBisibilityTools(
   );
 
   registerTool(
-    server,
+    registration,
     "bisibility_revoke_migration_token",
     {
+      access: "write",
+      destructive: true,
+      group: "tokens",
       description: "Revoke a project migration token.",
       inputSchema: revokeMigrationTokenInputSchema,
       title: "Revoke migration token",

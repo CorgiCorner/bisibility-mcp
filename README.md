@@ -40,6 +40,8 @@ The SDK is consumed as a workspace-style file dependency:
 export BISIBILITY_API_KEY="bsp_live_..."
 export BISIBILITY_BASE_URL="https://bisibility.com/api/v1"
 export BISIBILITY_PROJECT_ID="prj_..."
+export BISIBILITY_MCP_READ_ONLY="1"
+export BISIBILITY_MCP_TOOLSETS="projects,keywords,checks,rank-history"
 ```
 
 `BISIBILITY_BASE_URL` is optional and defaults to `https://bisibility.com/api/v1`. For self-hosted
@@ -48,6 +50,15 @@ installs, set it to your API v1 root, for example `https://rank.example/api/v1`.
 token (`bsp_live_...`). Set optional `BISIBILITY_PROJECT_ID` as the default
 `X-Bisibility-Project` selector for project-implicit PAT tools; a tool's
 optional `project_id` argument overrides it for that call.
+
+`BISIBILITY_MCP_READ_ONLY` accepts `1`, `true`, `yes`, or `on`, ignoring case. When enabled,
+write tools are not registered and do not appear in `tools/list`.
+
+`BISIBILITY_MCP_TOOLSETS` is an optional comma-separated allowlist. Valid toolsets are `account`,
+`alerts`, `analytics`, `checks`, `competitors`, `keywords`, `notifications`, `projects`,
+`providers`, `rank-history`, `saved-views`, `signals`, `sitemaps`, `system`, `team`, `tokens`,
+and `webhooks`. An unknown value prevents the server from starting. When the variable is unset,
+all toolsets are registered. The toolset filter and read-only mode compose.
 
 ## Run
 
@@ -187,6 +198,37 @@ All protected tools use the configured `BISIBILITY_API_KEY`. Write tools accept 
 
 The list above is asserted by a test (`test/tools.test.ts`), so it stays in sync with the
 registered tool surface.
+
+## Security
+
+Bisibility API keys are project-scoped, and their API scope is the primary authorization
+control. Create a `read`-scoped key for assistant use whenever possible. Do not grant `admin`
+unless the assistant needs an administrative API operation. Server-side filtering narrows the
+tools presented to the model, but it does not expand or replace the permissions of the
+configured credential.
+
+An agent that receives a write-scoped or admin credential can create and change project data.
+The destructive surface includes `bisibility_delete_project`, `bisibility_delete_keyword`,
+`bisibility_bulk_update_keywords` when its operation is `delete`, `bisibility_delete_webhook`,
+`bisibility_delete_alert_rule`, `bisibility_delete_saved_view`,
+`bisibility_remove_team_member`, `bisibility_remove_competitor`,
+`bisibility_disconnect_provider`, `bisibility_revoke_api_key`,
+`bisibility_revoke_personal_token`, `bisibility_revoke_team_invite`, and
+`bisibility_revoke_migration_token`. Revoking the credential used by the server can immediately
+lock the server out.
+
+Use read-only mode and a narrow toolset allowlist as defense in depth:
+
+```sh
+export BISIBILITY_MCP_READ_ONLY="1"
+export BISIBILITY_MCP_TOOLSETS="projects,keywords,checks,rank-history,alerts"
+```
+
+Content returned by the API is untrusted input that reaches the model. Project names, keyword
+phrases, alert text, and similar tracked data can contain hostile instructions intended to steer
+an agent that also has write tools. Keep credentials and registered toolsets as narrow as the
+workflow permits, and enable client-side confirmation for tool calls when the MCP client supports
+it.
 
 ## HTTP Transport
 
