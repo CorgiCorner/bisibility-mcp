@@ -18,10 +18,28 @@ export function createBisibilityMcpServer(options: CreateBisibilityMcpServerOpti
     options.readOnly === undefined || options.toolsets === undefined
       ? readBisibilityMcpToolConfig()
       : undefined;
-  const server = new McpServer({
-    name: options.name ?? SERVER_NAME,
-    version: options.version ?? SERVER_VERSION,
-  });
+  const hasDefaultProject = Boolean(process.env.BISIBILITY_PROJECT_ID?.trim());
+  const instructions = [
+    "Bisibility MCP lets you inspect and manage SEO tracking projects, rankings, alerts, webhooks, and integrations.",
+    // Conditional on purpose. An unconditional "call list_projects first" made both
+    // models resolve the project even when the prompt already named one, costing accuracy on
+    // tasks that were previously correct.
+    "Most tools are project-scoped and accept a project_id. If you do not already have a project id, call list_projects to see the available projects and their ids.",
+    ...(hasDefaultProject
+      ? [
+          "When BISIBILITY_PROJECT_ID is configured, it sets the default project, so applicable project_id inputs may be omitted.",
+        ]
+      : []),
+  ].join(" ");
+  const server = new McpServer(
+    {
+      name: options.name ?? SERVER_NAME,
+      version: options.version ?? SERVER_VERSION,
+    },
+    {
+      instructions,
+    },
+  );
   const toolsets = options.toolsets ?? envConfig?.toolsets;
 
   registerBisibilityTools(server, {

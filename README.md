@@ -11,7 +11,7 @@
 > **Status:** Developer preview.
 
 Model Context Protocol server for the Bisibility REST API. It exposes stdio tools backed by the
-local `@bisibility/sdk` package.
+published `@bisibility/sdk` package.
 
 ## Requirements
 
@@ -28,10 +28,10 @@ npm install
 npm run build
 ```
 
-The SDK is consumed as a workspace-style file dependency:
+The SDK is consumed from the npm registry:
 
 ```json
-"@bisibility/sdk": "file:../bisibility-sdk-ts-private"
+"@bisibility/sdk": "^0.5.0"
 ```
 
 ## Environment
@@ -49,16 +49,25 @@ installs, set it to your API v1 root, for example `https://rank.example/api/v1`.
 `BISIBILITY_API_KEY` accepts a project key (`bsk_live_...`) or personal access
 token (`bsp_live_...`). Set optional `BISIBILITY_PROJECT_ID` as the default
 `X-Bisibility-Project` selector for project-implicit PAT tools; a tool's
-optional `project_id` argument overrides it for that call.
+optional `project_id` argument overrides it for that call. Every resource ID
+accepted by the MCP server, including `BISIBILITY_PROJECT_ID`, must use public
+ID v2: a canonical lowercase prefix plus `_` and a 24-character lowercase
+CUID2 suffix, for example `prj_a1b2c3d4e5f6g7h8j9k0m2n3`. Raw database IDs,
+legacy IDs, mixed-case IDs, and wrong resource prefixes are rejected. Location
+selection uses the returned `location_key`, never a location ID.
+
+The SDK dependency and lockfile use the published registry package. Do not use
+a local SDK link.
 
 `BISIBILITY_MCP_READ_ONLY` accepts `1`, `true`, `yes`, or `on`, ignoring case. When enabled,
 write tools are not registered and do not appear in `tools/list`.
 
 `BISIBILITY_MCP_TOOLSETS` is an optional comma-separated allowlist. Valid toolsets are `account`,
-`alerts`, `analytics`, `checks`, `competitors`, `keywords`, `notifications`, `projects`,
+`alerts`, `analytics`, `backlinks`, `checks`, `competitors`, `keywords`, `notifications`, `projects`,
 `providers`, `rank-history`, `saved-views`, `signals`, `sitemaps`, `system`, `team`, `tokens`,
-and `webhooks`. An unknown value prevents the server from starting. When the variable is unset,
-all toolsets are registered. The toolset filter and read-only mode compose.
+and `webhooks`. An unknown value prevents the server from starting. When the variable is unset, all
+toolsets are registered. The toolset filter and read-only mode compose. The allowlist is a scope
+control, not a way to improve tool selection.
 
 ## Run
 
@@ -110,88 +119,107 @@ Example using the package bin:
 
 ## Tools
 
-- `bisibility_get_health`
-- `bisibility_get_capabilities`
-- `bisibility_get_cloud_import_compatibility`
-- `bisibility_get_provider_rates`
-- `bisibility_get_cost_estimate`
-- `bisibility_get_me`
-- `bisibility_update_me`
-- `bisibility_list_projects`
-- `bisibility_create_project`
-- `bisibility_get_project`
-- `bisibility_search_locations`
-- `bisibility_update_project`
-- `bisibility_delete_project`
-- `bisibility_get_project_defaults`
-- `bisibility_update_project_defaults`
-- `bisibility_list_keywords`
-- `bisibility_list_ranked_keyword_suggestions`
-- `bisibility_research_keywords`
-- `bisibility_get_keyword_metrics`
-- `bisibility_add_keywords`
-- `bisibility_get_keyword`
-- `bisibility_update_keyword`
-- `bisibility_set_keyword_target_url`
-- `bisibility_delete_keyword`
-- `bisibility_bulk_update_keywords`
-- `bisibility_run_rank_check`
-- `bisibility_get_rank_history`
-- `bisibility_export_rank_history`
-- `bisibility_list_sitemap_monitors`
-- `bisibility_enable_sitemap_monitor`
-- `bisibility_disable_sitemap_monitor`
-- `bisibility_get_rank_check_result`
-- `bisibility_create_signal`
-- `bisibility_list_signals`
-- `bisibility_list_traffic_snapshots`
-- `bisibility_list_search_performance_query_stats`
-- `bisibility_sync_project_traffic`
-- `bisibility_list_api_keys`
-- `bisibility_create_api_key`
-- `bisibility_revoke_api_key`
-- `bisibility_list_project_api_keys`
-- `bisibility_create_project_api_key`
-- `bisibility_list_personal_tokens`
-- `bisibility_create_personal_token`
-- `bisibility_revoke_personal_token`
-- `bisibility_list_webhooks`
-- `bisibility_create_webhook`
-- `bisibility_update_webhook`
-- `bisibility_delete_webhook`
-- `bisibility_list_alert_rules`
-- `bisibility_create_alert_rule`
-- `bisibility_update_alert_rule`
-- `bisibility_delete_alert_rule`
-- `bisibility_list_triggered_alerts`
-- `bisibility_mute_triggered_alert`
-- `bisibility_mark_project_alerts_read`
-- `bisibility_list_team_members`
-- `bisibility_list_team_invites`
-- `bisibility_create_team_invite`
-- `bisibility_revoke_team_invite`
-- `bisibility_resend_team_invite`
-- `bisibility_update_team_member_role`
-- `bisibility_remove_team_member`
-- `bisibility_list_providers`
-- `bisibility_connect_provider`
-- `bisibility_test_provider_connection`
-- `bisibility_update_provider_settings`
-- `bisibility_set_provider_enabled`
-- `bisibility_set_provider_priority`
-- `bisibility_set_primary_provider`
-- `bisibility_disconnect_provider`
-- `bisibility_list_saved_views`
-- `bisibility_create_saved_view`
-- `bisibility_delete_saved_view`
-- `bisibility_list_competitors`
-- `bisibility_add_competitor`
-- `bisibility_remove_competitor`
-- `bisibility_get_notification_preferences`
-- `bisibility_update_notification_preferences`
-- `bisibility_list_migration_tokens`
-- `bisibility_mint_migration_token`
-- `bisibility_revoke_migration_token`
+Tools use unprefixed `snake_case` names and can be filtered with
+`BISIBILITY_MCP_TOOLSETS`. The names match the built-in `/api/mcp` endpoint, so clients can
+switch transports without rewriting tool calls.
+
+| Area | Examples |
+| --- | --- |
+| Discovery | Health, capabilities, provider rates, and cost estimates |
+| Rank tracking | Projects, keywords, checks, rank history, and sitemaps |
+| Analytics | Traffic snapshots, query statistics, signals, and backlinks |
+| Collaboration | Alerts, team members, invitations, and notifications |
+| Administration | Providers, API keys, personal tokens, webhooks, and migration tokens |
+
+<details>
+<summary>View all registered tool names</summary>
+
+- `get_health`
+- `get_capabilities`
+- `get_cloud_import_compatibility`
+- `get_provider_rates`
+- `get_cost_estimate`
+- `get_me`
+- `update_me`
+- `list_projects`
+- `create_project`
+- `get_project`
+- `search_locations`
+- `update_project`
+- `delete_project`
+- `get_project_defaults`
+- `update_project_defaults`
+- `list_keywords`
+- `list_ranked_keyword_suggestions`
+- `research_keywords`
+- `analyze_backlinks`
+- `load_more_backlink_rows`
+- `get_keyword_metrics`
+- `add_keywords`
+- `get_keyword`
+- `update_keyword`
+- `set_keyword_target_url`
+- `delete_keyword`
+- `bulk_update_keywords`
+- `run_rank_check`
+- `get_rank_history`
+- `export_rank_history`
+- `list_sitemap_monitors`
+- `enable_sitemap_monitor`
+- `disable_sitemap_monitor`
+- `get_rank_check_result`
+- `create_signal`
+- `list_signals`
+- `list_traffic_snapshots`
+- `list_search_performance_query_stats`
+- `sync_project_traffic`
+- `list_api_keys`
+- `create_api_key`
+- `revoke_api_key`
+- `list_project_api_keys`
+- `create_project_api_key`
+- `list_personal_tokens`
+- `create_personal_token`
+- `revoke_personal_token`
+- `list_webhooks`
+- `create_webhook`
+- `update_webhook`
+- `delete_webhook`
+- `list_alert_rules`
+- `create_alert_rule`
+- `update_alert_rule`
+- `delete_alert_rule`
+- `list_triggered_alerts`
+- `mute_triggered_alert`
+- `mark_project_alerts_read`
+- `list_team_members`
+- `list_team_invites`
+- `create_team_invite`
+- `revoke_team_invite`
+- `resend_team_invite`
+- `update_team_member_role`
+- `remove_team_member`
+- `list_providers`
+- `connect_provider`
+- `test_provider_connection`
+- `update_provider_settings`
+- `set_provider_enabled`
+- `set_provider_priority`
+- `set_primary_provider`
+- `disconnect_provider`
+- `list_saved_views`
+- `create_saved_view`
+- `delete_saved_view`
+- `list_competitors`
+- `add_competitor`
+- `remove_competitor`
+- `get_notification_preferences`
+- `update_notification_preferences`
+- `list_migration_tokens`
+- `mint_migration_token`
+- `revoke_migration_token`
+
+</details>
 
 All protected tools use the configured `BISIBILITY_API_KEY`. Write tools accept an optional
 `idempotency_key`, which is forwarded as the API `Idempotency-Key` request option.
@@ -201,20 +229,27 @@ registered tool surface.
 
 ## Security
 
-Bisibility API keys are project-scoped, and their API scope is the primary authorization
-control. Create a `read`-scoped key for assistant use whenever possible. Do not grant `admin`
-unless the assistant needs an administrative API operation. Server-side filtering narrows the
-tools presented to the model, but it does not expand or replace the permissions of the
-configured credential.
+The credential's scope is the primary authorization control, and the server accepts two kinds.
+A project key (`bsk_live_...`) belongs to exactly one project, which bounds the damage from a
+leak and makes it a good fit for a single-project or machine setup. A personal access token
+(`bsp_live_...`) covers the projects you are a member of, so one token serves them all; its
+effective access in each project is the lower of the token's scope and your role there, meaning
+a token never grants more than the person behind it. Use `BISIBILITY_PROJECT_ID` to set the
+default project for a token that spans several, as described under Environment above.
+
+Whichever kind you use, create it with a `read` scope for assistant use whenever possible, and
+do not grant `admin` unless the assistant needs an administrative API operation. Server-side
+filtering narrows the tools presented to the model, but it does not expand or replace the
+permissions of the configured credential.
 
 An agent that receives a write-scoped or admin credential can create and change project data.
-The destructive surface includes `bisibility_delete_project`, `bisibility_delete_keyword`,
-`bisibility_bulk_update_keywords` when its operation is `delete`, `bisibility_delete_webhook`,
-`bisibility_delete_alert_rule`, `bisibility_delete_saved_view`,
-`bisibility_remove_team_member`, `bisibility_remove_competitor`,
-`bisibility_disconnect_provider`, `bisibility_revoke_api_key`,
-`bisibility_revoke_personal_token`, `bisibility_revoke_team_invite`, and
-`bisibility_revoke_migration_token`. Revoking the credential used by the server can immediately
+The destructive surface includes `delete_project`, `delete_keyword`,
+`bulk_update_keywords` when its operation is `delete`, `delete_webhook`,
+`delete_alert_rule`, `delete_saved_view`,
+`remove_team_member`, `remove_competitor`,
+`disconnect_provider`, `revoke_api_key`,
+`revoke_personal_token`, `revoke_team_invite`, and
+`revoke_migration_token`. Revoking the credential used by the server can immediately
 lock the server out.
 
 Use read-only mode and a narrow toolset allowlist as defense in depth:

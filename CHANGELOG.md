@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.4.0 - 2026-07-29
+
+- Breaking: use the same 84 unprefixed `snake_case` tool names as `/api/mcp`; clients must remove
+  `bisibility_` from stored tool names.
+- Breaking: enforce resource-specific public ID v2 prefixes for tool inputs and
+  `BISIBILITY_PROJECT_ID`.
+- Align tool schemas with `/api/mcp`, add backlink tools and project guidance, and require user
+  confirmation before paid rank checks.
+
 ## 0.3.0 - 2026-07-27
 
 - Added `BISIBILITY_MCP_READ_ONLY` to register only read tools, so mutating tools are absent

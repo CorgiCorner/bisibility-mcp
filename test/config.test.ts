@@ -17,6 +17,8 @@ import {
   readBisibilityMcpToolConfig,
 } from "../src/index.js";
 
+const projectId = `prj_a${"0".repeat(23)}`;
+
 describe("server metadata", () => {
   it("reports the package.json version", () => {
     const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
@@ -55,22 +57,22 @@ describe("Bisibility MCP config", () => {
     expect(
       readBisibilityMcpConfig({
         BISIBILITY_API_KEY: "bsp_live_1",
-        BISIBILITY_PROJECT_ID: " prj_1 ",
+        BISIBILITY_PROJECT_ID: ` ${projectId} `,
       }),
     ).toEqual({
       apiKey: "bsp_live_1",
       baseUrl: DEFAULT_BISIBILITY_BASE_URL,
-      projectId: "prj_1",
+      projectId,
     });
 
     createBisibilityClientFromEnv({
       BISIBILITY_API_KEY: "bsp_live_1",
-      BISIBILITY_PROJECT_ID: "prj_1",
+      BISIBILITY_PROJECT_ID: projectId,
     });
     expect(bisibilityClientMock).toHaveBeenLastCalledWith({
       apiKey: "bsp_live_1",
       baseUrl: DEFAULT_BISIBILITY_BASE_URL,
-      projectId: "prj_1",
+      projectId,
     });
   });
 
@@ -88,6 +90,18 @@ describe("Bisibility MCP config", () => {
       }),
     ).toThrow("BISIBILITY_BASE_URL cannot be empty.");
   });
+
+  it.each(["prj_1", "kw_a000000000000000000000000", "prj_A000000000000000000000000"])(
+    "rejects a non-v2 project selector: %s",
+    (value) => {
+      expect(() =>
+        readBisibilityMcpConfig({
+          BISIBILITY_API_KEY: "bsp_live_1",
+          BISIBILITY_PROJECT_ID: value,
+        }),
+      ).toThrow("BISIBILITY_PROJECT_ID must be a prj_ public ID v2.");
+    },
+  );
 
   it("creates the SDK client from env with overrides", () => {
     const fetchImpl = vi.fn();

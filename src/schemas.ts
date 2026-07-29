@@ -1,7 +1,117 @@
 import * as z from "zod/v4";
 
-export const idInput = z.string().trim().min(1).max(160);
-export const deviceInput = z.enum(["desktop", "mobile"]);
+export const publicIdPrefixes = [
+  "alert",
+  "audit",
+  "check",
+  "comp",
+  "conn",
+  "hook",
+  "invite",
+  "job",
+  "key",
+  "kw",
+  "member",
+  "mtok",
+  "notif",
+  "pat",
+  "prj",
+  "rule",
+  "ses",
+  "sig",
+  "skw",
+  "tag",
+  "usr",
+  "view",
+  "webhook",
+] as const;
+
+export type PublicIdPrefix = (typeof publicIdPrefixes)[number];
+export type PublicIdForPrefix<Prefix extends PublicIdPrefix> = `${Prefix}_${string}`;
+
+const publicIdPrefixSet = new Set<string>(publicIdPrefixes);
+const publicIdSuffixPattern = /^[a-z][a-z0-9]{23}$/;
+
+function publicIdPattern(prefix: PublicIdPrefix) {
+  if (!publicIdPrefixSet.has(prefix)) {
+    throw new Error(`Unsupported public ID prefix: ${prefix}.`);
+  }
+  // This interpolation is safe: prefix is checked against the closed registry above.
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
+  return new RegExp(`^${prefix}_[a-z][a-z0-9]{23}$`);
+}
+
+function matchesPublicId(value: string, prefix: PublicIdPrefix) {
+  const expectedPrefix = `${prefix}_`;
+  return (
+    value.startsWith(expectedPrefix) &&
+    publicIdSuffixPattern.test(value.slice(expectedPrefix.length))
+  );
+}
+
+export function assertPublicId<Prefix extends PublicIdPrefix>(
+  value: string,
+  prefix: Prefix,
+): asserts value is PublicIdForPrefix<Prefix> {
+  if (!matchesPublicId(value, prefix)) {
+    throw new Error(`Expected a ${prefix}_ public ID v2.`);
+  }
+}
+
+export function parsePublicId<Prefix extends PublicIdPrefix>(
+  value: string,
+  prefix: Prefix,
+): PublicIdForPrefix<Prefix> {
+  assertPublicId(value, prefix);
+  return value;
+}
+
+export const publicIdInput = <Prefix extends PublicIdPrefix>(prefix: Prefix) =>
+  z
+    .string()
+    .trim()
+    .regex(publicIdPattern(prefix), {
+      message: `Expected a ${prefix}_ public ID v2.`,
+    })
+    .transform((value) => parsePublicId(value, prefix));
+
+const alertIdInput = publicIdInput("alert").describe(
+  "Identifier of the triggered alert to operate on.",
+);
+const checkIdInput = publicIdInput("check").describe("Identifier of the rank check to retrieve.");
+const competitorIdInput = publicIdInput("comp").describe(
+  "Identifier of the competitor to operate on.",
+);
+const connectionIdInput = publicIdInput("conn").describe(
+  "Identifier of the provider connection to operate on.",
+);
+const inviteIdInput = publicIdInput("invite").describe(
+  "Identifier of the team invitation to operate on.",
+);
+const keyIdInput = publicIdInput("key").describe("Identifier of the API key to operate on.");
+const keywordIdInput = publicIdInput("kw").describe(
+  "Identifier of the tracked keyword to operate on.",
+);
+const memberIdInput = publicIdInput("member").describe(
+  "Identifier of the project member to operate on.",
+);
+const migrationTokenIdInput = publicIdInput("mtok").describe(
+  "Identifier of the migration token to operate on.",
+);
+const personalAccessTokenIdInput = publicIdInput("pat").describe(
+  "Identifier of the personal access token to operate on.",
+);
+export const projectIdInput = publicIdInput("prj").describe(
+  "Identifier of the Bisibility project to operate on; list_projects returns valid project ids.",
+);
+const ruleIdInput = publicIdInput("rule").describe("Identifier of the alert rule to operate on.");
+const viewIdInput = publicIdInput("view").describe("Identifier of the saved view to operate on.");
+const webhookIdInput = publicIdInput("webhook").describe(
+  "Identifier of the webhook endpoint to operate on.",
+);
+export const deviceInput = z
+  .enum(["desktop", "mobile"])
+  .describe("Device whose search or ranking data is being selected.");
 export const rankCheckFrequencyValues = [
   "paused",
   "manual",
@@ -10,18 +120,28 @@ export const rankCheckFrequencyValues = [
   "monthly",
   "custom_cron",
 ] as const;
-export const rankCheckFrequencyInput = z.enum(rankCheckFrequencyValues);
-export const alertConditionTypeInput = z.enum([
-  "change_pct",
-  "competitor_overtake",
-  "enters_top_n",
-  "exits_top_n",
-  "serp_feature",
-  "threshold",
-]);
+export const rankCheckFrequencyInput = z
+  .enum(rankCheckFrequencyValues)
+  .describe("Schedule frequency that determines when rank checks run.");
+export const alertConditionTypeInput = z
+  .enum([
+    "change_pct",
+    "competitor_overtake",
+    "ctr_drop",
+    "downtrend",
+    "enters_top_n",
+    "exits_top_n",
+    "position_drop",
+    "serp_feature",
+    "threshold",
+    "url_mismatch",
+  ])
+  .describe("Condition that determines when the alert rule fires.");
 export const alertChannelInput = z.enum(["email", "slack", "webhook"]);
 export const alertTargetTypeInput = z.enum(["all", "keyword", "tag"]);
-export const teamInviteRoleInput = z.enum(["admin", "member", "viewer"]);
+export const teamInviteRoleInput = z
+  .enum(["admin", "member", "viewer"])
+  .describe("Project role to grant to the invited or existing team member.");
 export const migrationScopeInput = z.enum(["full", "keywords"]);
 export const savedViewChangeFilterInput = z.enum(["any", "down", "lost", "new", "up"]);
 // Country and SERP filters are validated server-side against the data-driven
@@ -39,18 +159,22 @@ export const providerIdInput = z
   .min(1)
   .max(80)
   .describe("Provider id. Known values: dataforseo, serpapi, ga4, gsc, plausible.");
-export const signalSourceInput = z.enum([
-  "api",
-  "cms",
-  "deploy",
-  "manual",
-  "rank_tracker",
-  "search_analytics",
-  "search_engine_status",
-  "sitemap",
-  "url_inspection",
-]);
-export const createSignalSourceInput = z.enum(["api", "cms", "deploy"]);
+export const signalSourceInput = z
+  .enum([
+    "api",
+    "cms",
+    "deploy",
+    "manual",
+    "rank_tracker",
+    "search_analytics",
+    "search_engine_status",
+    "sitemap",
+    "url_inspection",
+  ])
+  .describe("System or workflow that produced the signal.");
+export const createSignalSourceInput = z
+  .enum(["api", "cms", "deploy"])
+  .describe("System or workflow that produced the new signal.");
 export const signalSeverityInput = z.enum(["critical", "info", "warning"]);
 export const costEstimateFrequencyInput = rankCheckFrequencyInput.exclude([
   "paused",
@@ -58,18 +182,19 @@ export const costEstimateFrequencyInput = rankCheckFrequencyInput.exclude([
   "custom_cron",
 ]);
 
-const tagInput = z.string().trim().min(1).max(48);
+const tagInput = z.string().trim().min(1).max(48).describe("Tag label assigned to the keyword.");
 const optionalLimitedText = (max: number) => z.string().trim().min(1).max(max).optional();
 const nullableLimitedText = (max: number) =>
   z.string().trim().min(1).max(max).nullable().optional();
 const providerSecretInput = z.string().trim().min(1).max(4096).optional();
-const dateInput = z.iso.date();
+const dateInput = z.iso.date().describe("Calendar date delimiting the requested reporting period.");
 const httpUrlInput = (field: string, max: number) =>
   z
     .url()
     .trim()
     .max(max)
-    .regex(/^https?:\/\//i, { message: `${field} must use http or https.` });
+    .regex(/^https?:\/\//i, { message: `${field} must use http or https.` })
+    .describe(`${field} HTTP or HTTPS URL supplied by the endpoint owner.`);
 export const locationKeyInput = z
   .string()
   .trim()
@@ -105,15 +230,22 @@ export const targetUrlValueInput = z
   .refine(isAbsoluteUrlOrPath, {
     message: "Target URL must be an absolute URL or a path.",
   })
-  .nullable();
+  .nullable()
+  .describe("Canonical destination URL or site-relative path to associate with the keyword.");
 
 export const targetUrlInput = targetUrlValueInput.optional();
 
 export const keywordScheduleInput = z
   .object({
-    cron_expression: z.string().trim().min(1).max(120).nullable(),
+    cron_expression: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .nullable()
+      .describe("Cron expression for custom_cron schedules; use null for other frequencies."),
     frequency: rankCheckFrequencyInput,
-    jitter_minutes: z.number().int().min(0).max(1440).optional(),
+    jitter_minutes: z.number().int().min(0).max(120).optional(),
     timezone: z.string().trim().min(1).max(80).optional(),
   })
   .strict()
@@ -137,7 +269,7 @@ export const requestOptionsInput = {
 };
 
 export const projectSelectionInput = {
-  project_id: idInput.optional(),
+  project_id: projectIdInput.optional(),
 };
 
 export const emptyInputSchema = z.object({}).strict();
@@ -184,15 +316,25 @@ export const getMeInputSchema = emptyInputSchema;
 export const updateMeInputSchema = z
   .object({
     ...requestOptionsInput,
-    name: z.string().trim().min(1).max(120),
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .describe("Display name chosen for your Bisibility account."),
   })
   .strict();
 
 export const createProjectInputSchema = z
   .object({
     ...requestOptionsInput,
-    domain: z.string().trim().min(1).max(253),
-    name: z.string().trim().min(1).max(120),
+    domain: z.string().trim().min(1).max(253).describe("Primary domain the new project tracks."),
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .describe("Human-readable name chosen for the new project."),
     tracking_scope: z.enum(["city", "country"]).optional(),
   })
   .strict();
@@ -203,7 +345,12 @@ export const createPersonalTokenInputSchema = z
   .object({
     ...requestOptionsInput,
     expires_in_days: z.union([z.literal(30), z.literal(90), z.literal(365), z.null()]).optional(),
-    name: z.string().trim().min(1).max(80),
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .describe("Label you choose to identify the personal token."),
     scope: z.enum(["admin", "read", "write"]).optional(),
   })
   .strict();
@@ -211,12 +358,12 @@ export const createPersonalTokenInputSchema = z
 export const revokePersonalTokenInputSchema = z
   .object({
     ...requestOptionsInput,
-    token_id: idInput,
+    token_id: personalAccessTokenIdInput,
   })
   .strict();
 
 export const listWebhooksInputSchema = z
-  .object({ ...paginationInput, project_id: idInput })
+  .object({ ...paginationInput, project_id: projectIdInput })
   .strict();
 
 export const createWebhookInputSchema = z
@@ -224,8 +371,13 @@ export const createWebhookInputSchema = z
     ...requestOptionsInput,
     description: z.string().trim().max(160).nullable().optional(),
     enabled: z.boolean().optional(),
-    hmac_secret: z.string().trim().min(16).max(500),
-    project_id: idInput,
+    hmac_secret: z
+      .string()
+      .trim()
+      .min(16)
+      .max(500)
+      .describe("Secret you provide to sign webhook deliveries with HMAC."),
+    project_id: projectIdInput,
     url: httpUrlInput("url", 500),
   })
   .strict();
@@ -236,9 +388,9 @@ export const updateWebhookInputSchema = z
     description: z.string().trim().max(160).nullable().optional(),
     enabled: z.boolean().optional(),
     hmac_secret: z.string().trim().min(16).max(500).optional(),
-    project_id: idInput,
+    project_id: projectIdInput,
     url: httpUrlInput("url", 500).optional(),
-    webhook_id: idInput,
+    webhook_id: webhookIdInput,
   })
   .strict()
   .refine(
@@ -251,26 +403,35 @@ export const updateWebhookInputSchema = z
   );
 
 export const deleteWebhookInputSchema = z
-  .object({ ...requestOptionsInput, project_id: idInput, webhook_id: idInput })
+  .object({ ...requestOptionsInput, project_id: projectIdInput, webhook_id: webhookIdInput })
   .strict();
 
 export const createProjectApiKeyInputSchema = z
-  .object({ ...requestOptionsInput, name: z.string().trim().min(1).max(80), project_id: idInput })
+  .object({
+    ...requestOptionsInput,
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .describe("Label you choose to identify the project API key."),
+    project_id: projectIdInput,
+  })
   .strict();
 
 export const listProjectApiKeysInputSchema = z
-  .object({ ...paginationInput, project_id: idInput })
+  .object({ ...paginationInput, project_id: projectIdInput })
   .strict();
 
 export const getProjectInputSchema = z
   .object({
-    project_id: idInput,
+    project_id: projectIdInput,
   })
   .strict();
 
 export const getProjectDefaultsInputSchema = z
   .object({
-    project_id: idInput,
+    project_id: projectIdInput,
   })
   .strict();
 
@@ -279,7 +440,7 @@ export const updateProjectInputSchema = z
     ...requestOptionsInput,
     domain: optionalLimitedText(253),
     name: optionalLimitedText(120),
-    project_id: idInput,
+    project_id: projectIdInput,
   })
   .strict()
   .refine((value) => value.domain !== undefined || value.name !== undefined, {
@@ -290,7 +451,7 @@ export const updateProjectInputSchema = z
 export const deleteProjectInputSchema = z
   .object({
     ...requestOptionsInput,
-    project_id: idInput,
+    project_id: projectIdInput,
   })
   .strict();
 
@@ -302,9 +463,13 @@ export const updateProjectDefaultsInputSchema = z
     cron_expression: z.string().trim().min(1).max(120).nullable().optional(),
     device: deviceInput.optional(),
     frequency: rankCheckFrequencyInput,
-    jitter_minutes: z.number().int().min(0).max(1440).optional(),
+    jitter_minutes: z.number().int().min(0).max(120).optional(),
     location_key: locationKeyInput,
-    project_id: idInput,
+    project_id: projectIdInput,
+    serp_stop_on_match: z
+      .boolean()
+      .optional()
+      .describe("Set false to fetch the full configured depth for competitor snapshots."),
     timezone: optionalLimitedText(80),
   })
   .strict()
@@ -339,7 +504,15 @@ export const createApiKeyInputSchema = z
   .object({
     ...requestOptionsInput,
     ...projectSelectionInput,
-    name: z.string().trim().min(1).max(80),
+    expires_in_days: z
+      .union([z.literal(30), z.literal(90), z.literal(365), z.null()])
+      .optional()
+      .describe("Lifetime in days. Use null for no expiry."),
+    name: z.string().trim().min(1).max(80).describe("Label you choose to identify the API key."),
+    scope: z
+      .enum(["read", "write", "admin"])
+      .default("admin")
+      .describe("Access tier. When omitted, defaults to admin for backward compatibility."),
   })
   .strict();
 
@@ -347,7 +520,7 @@ export const revokeApiKeyInputSchema = z
   .object({
     ...requestOptionsInput,
     ...projectSelectionInput,
-    key_id: idInput,
+    key_id: keyIdInput,
   })
   .strict();
 
@@ -359,7 +532,7 @@ export const listKeywordsInputSchema = z
     intent: optionalLimitedText(80),
     position_gt: z.number().int().min(0).optional(),
     position_lt: z.number().int().min(0).optional(),
-    project_id: idInput,
+    project_id: projectIdInput,
     search: optionalLimitedText(180),
     sort: z
       .enum([
@@ -380,17 +553,17 @@ export const listKeywordsInputSchema = z
 
 export const listRankedKeywordSuggestionsInputSchema = z
   .object({
-    connection_id: idInput.optional(),
+    connection_id: connectionIdInput.optional(),
     fresh: z.boolean().optional(),
     limit: z.number().int().min(1).max(100).optional(),
     offset: z.number().int().min(0).max(900).multipleOf(100).optional(),
-    project_id: idInput,
+    project_id: projectIdInput,
   })
   .strict();
 
 export const researchKeywordsInputSchema = z
   .object({
-    connection_id: idInput.optional(),
+    connection_id: connectionIdInput.optional(),
     estimate_only: z
       .boolean()
       .optional()
@@ -404,29 +577,103 @@ export const researchKeywordsInputSchema = z
       .optional()
       .describe("Best-effort maximum provider cost for this request, in cents."),
     mode: z.enum(["auto", "related", "suggestions", "ideas"]).optional(),
-    project_id: idInput,
+    project_id: projectIdInput,
     result_limit: z.union([z.literal(100), z.literal(300), z.literal(500)]).optional(),
-    seed: z.string().trim().min(1).max(80),
+    seed: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .describe("Keyword or phrase used as the starting point for research."),
   })
   .strict();
 
-export const getKeywordMetricsInputSchema = z
+export const analyzeBacklinksInputSchema = z
   .object({
-    connection_id: idInput.optional(),
     estimate_only: z
       .boolean()
       .optional()
       .describe("Return a free cost estimate without calling the provider or spending budget."),
-    fresh: z.boolean().optional(),
-    include_clickstream: z.boolean().optional(),
-    keywords: z.array(z.string().trim().min(1).max(80)).min(1).max(700),
+    fresh: z
+      .boolean()
+      .optional()
+      .describe("Bypass the current cached snapshot and request fresh provider data."),
+    include_subdomains: z
+      .boolean()
+      .optional()
+      .describe("Include backlinks to subdomains for site targets. Ignored for page targets."),
     max_cost_cents: z
       .number()
       .int()
       .positive()
       .optional()
       .describe("Best-effort maximum provider cost for this request, in cents."),
-    project_id: idInput,
+    mode: z
+      .enum(["as_is", "one_per_domain"])
+      .optional()
+      .describe("Return backlinks as provided or denoise to one backlink per referring domain."),
+    project_id: projectIdInput.describe("Project id whose provider budget and snapshot are used."),
+    result_limit: z
+      .union([z.literal(100), z.literal(300), z.literal(500), z.literal(1000)])
+      .optional()
+      .describe("Maximum number of backlink rows to fetch: 100, 300, 500, or 1000."),
+    target: z.string().trim().min(1).max(2048).describe("Domain or full page URL to analyze."),
+    target_scope: z
+      .enum(["site", "page"])
+      .optional()
+      .describe("Analyze the whole site or one page. The API infers the scope when omitted."),
+  })
+  .strict();
+
+export const loadMoreBacklinkRowsInputSchema = z
+  .object({
+    include_subdomains: z
+      .boolean()
+      .optional()
+      .describe("Include backlinks to subdomains for site targets. Ignored for page targets."),
+    limit: z
+      .number()
+      .int()
+      .positive()
+      .max(1000)
+      .multipleOf(100)
+      .optional()
+      .describe("Number of additional rows to fetch, in multiples of 100 up to 1000."),
+    project_id: projectIdInput.describe("Project id whose provider budget and snapshot are used."),
+    target: z
+      .string()
+      .trim()
+      .min(1)
+      .max(2048)
+      .describe("Domain or full page URL matching the current unexpired snapshot."),
+    target_scope: z
+      .enum(["site", "page"])
+      .optional()
+      .describe("Site or page scope matching the current unexpired snapshot."),
+  })
+  .strict();
+
+export const getKeywordMetricsInputSchema = z
+  .object({
+    connection_id: connectionIdInput.optional(),
+    estimate_only: z
+      .boolean()
+      .optional()
+      .describe("Return a free cost estimate without calling the provider or spending budget."),
+    fresh: z.boolean().optional(),
+    include_clickstream: z.boolean().optional(),
+    keywords: z
+      .array(z.string().trim().min(1).max(80))
+      .min(1)
+      .max(700)
+      .describe("Keywords to request metrics for, supplied as search phrases."),
+    max_cost_cents: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("Best-effort maximum provider cost for this request, in cents."),
+    project_id: projectIdInput,
   })
   .strict();
 
@@ -434,19 +681,23 @@ export const exportRankHistoryInputSchema = z
   .object({
     ...paginationInput,
     granularity: z.enum(["daily", "weekly"]).optional(),
-    keyword_id: z.array(idInput).max(500).optional(),
-    project_id: idInput,
+    keyword_ids: z
+      .array(keywordIdInput)
+      .max(500)
+      .optional()
+      .describe("Tracked keyword ids to include in the export."),
+    project_id: projectIdInput,
     range: z.enum(["30", "90", "all"]).optional(),
   })
   .strict();
 
-export const listSitemapMonitorsInputSchema = z.object({ project_id: idInput }).strict();
+export const listSitemapMonitorsInputSchema = z.object({ project_id: projectIdInput }).strict();
 
 export const updateSitemapMonitorInputSchema = z
   .object({
     ...requestOptionsInput,
-    monitor_id: idInput,
-    project_id: idInput,
+    monitor_id: projectIdInput,
+    project_id: projectIdInput,
   })
   .strict();
 
@@ -454,7 +705,12 @@ export const searchLocationsInputSchema = z
   .object({
     country: optionalLimitedText(120),
     limit: z.number().int().min(1).max(100).optional(),
-    q: z.string().trim().min(2).max(120),
+    q: z
+      .string()
+      .trim()
+      .min(2)
+      .max(120)
+      .describe("Location name or search phrase used to find matching markets."),
   })
   .strict();
 
@@ -463,7 +719,7 @@ export const keywordCreateItemInputSchema = z
     ...keywordMarketInputs,
     country: optionalLimitedText(120),
     device: deviceInput.optional(),
-    keyword: z.string().trim().min(1).max(180),
+    keyword: z.string().trim().min(1).max(180).describe("Search phrase to add to the project."),
     location: optionalLimitedText(120),
     schedule: keywordScheduleInput.optional(),
     tags: z.array(tagInput).max(12).optional(),
@@ -480,9 +736,10 @@ export const addKeywordsInputSchema = z
     keywords: z
       .array(z.union([z.string().trim().min(1).max(180), keywordCreateItemInputSchema]))
       .min(1)
-      .max(500),
+      .max(500)
+      .describe("Keyword phrases or keyword objects to add to the project."),
     location: optionalLimitedText(120),
-    project_id: idInput,
+    project_id: projectIdInput,
     schedule: keywordScheduleInput.optional(),
     tags: z.array(tagInput).max(12).optional(),
     target_url: targetUrlInput,
@@ -492,7 +749,7 @@ export const addKeywordsInputSchema = z
 export const getKeywordInputSchema = z
   .object({
     ...projectSelectionInput,
-    keyword_id: idInput,
+    keyword_id: keywordIdInput,
   })
   .strict();
 
@@ -505,7 +762,7 @@ export const updateKeywordInputSchema = z
     device: deviceInput.optional(),
     frequency: rankCheckFrequencyInput.optional(),
     keyword: optionalLimitedText(180),
-    keyword_id: idInput,
+    keyword_id: keywordIdInput,
     location: optionalLimitedText(120),
     schedule: keywordScheduleInput.optional(),
     tags: z.array(tagInput).max(12).optional(),
@@ -517,7 +774,7 @@ export const setKeywordTargetUrlInputSchema = z
   .object({
     ...requestOptionsInput,
     ...projectSelectionInput,
-    keyword_id: idInput,
+    keyword_id: keywordIdInput,
     target_url: targetUrlValueInput,
   })
   .strict();
@@ -526,7 +783,7 @@ export const deleteKeywordInputSchema = z
   .object({
     ...requestOptionsInput,
     ...projectSelectionInput,
-    keyword_id: idInput,
+    keyword_id: keywordIdInput,
   })
   .strict();
 
@@ -535,8 +792,14 @@ export const keywordBulkInputSchema = z
     ...requestOptionsInput,
     ...projectSelectionInput,
     frequency: rankCheckFrequencyInput.optional(),
-    keyword_ids: z.array(idInput).min(1).max(500),
-    operation: z.enum(["add_tags", "delete", "remove_tags", "set_frequency", "set_target_url"]),
+    keyword_ids: z
+      .array(keywordIdInput)
+      .min(1)
+      .max(500)
+      .describe("Keyword identifiers returned by the project's keyword list or create response."),
+    operation: z
+      .enum(["add_tags", "delete", "remove_tags", "set_frequency", "set_target_url"])
+      .describe("Bulk change to apply to every supplied keyword id."),
     schedule: keywordScheduleInput.optional(),
     tags: z.array(tagInput).max(12).optional(),
     target_url: targetUrlInput,
@@ -574,7 +837,7 @@ export const runRankCheckInputSchema = z
     ...requestOptionsInput,
     ...projectSelectionInput,
     async: z.boolean().optional(),
-    keyword_id: idInput,
+    keyword_id: keywordIdInput,
     provider_id: providerIdInput
       .optional()
       .describe("SERP provider id, validated server-side. Known values: dataforseo and serpapi."),
@@ -585,7 +848,7 @@ export const getRankHistoryInputSchema = z
   .object({
     ...paginationInput,
     ...projectSelectionInput,
-    keyword_id: idInput,
+    keyword_id: keywordIdInput,
     since: optionalLimitedText(80),
     status: z.enum(["completed", "failed"]).optional(),
     until: optionalLimitedText(80),
@@ -595,7 +858,7 @@ export const getRankHistoryInputSchema = z
 export const getRankCheckResultInputSchema = z
   .object({
     ...projectSelectionInput,
-    check_id: idInput,
+    check_id: checkIdInput,
   })
   .strict();
 
@@ -628,7 +891,7 @@ export const createSignalInputSchema = z
     happened_at: optionalLimitedText(80).describe(
       "ISO-8601 date-time when the signal happened. Defaults to now on the server.",
     ),
-    keyword_id: idInput.optional(),
+    keyword_id: keywordIdInput.optional(),
     payload: signalPayloadInput
       .optional()
       .describe("JSON object payload. Serialized payloads above 8KB are rejected."),
@@ -645,7 +908,7 @@ export const listSignalsInputSchema = z
     from: optionalLimitedText(80).describe(
       "Only signals that happened at or after this ISO-8601 date-time.",
     ),
-    project_id: idInput,
+    project_id: projectIdInput,
     source: signalSourceInput.optional(),
     to: optionalLimitedText(80).describe(
       "Only signals that happened at or before this ISO-8601 date-time.",
@@ -660,23 +923,68 @@ export const listSignalsInputSchema = z
 export const listProjectResourcesInputSchema = z
   .object({
     ...paginationInput,
-    project_id: idInput,
+    project_id: projectIdInput,
   })
   .strict();
 
 const alertRuleInputShape = {
-  change_pct: z.number().min(0).nullable().optional(),
+  change_pct: z.number().min(0.1).max(1000).nullable().optional(),
   channels: z.array(alertChannelInput).min(1).max(3).optional(),
   condition_type: alertConditionTypeInput,
   competitor_domain: nullableLimitedText(253),
+  drop_positions: z.number().int().min(1).max(100).nullable().optional(),
   enabled: z.boolean().optional(),
-  name: z.string().trim().min(1).max(120),
+  name: z
+    .string()
+    .trim()
+    .min(2)
+    .max(120)
+    .describe("Human-readable name chosen for the alert rule."),
+  recipient_ids: z.array(publicIdInput("usr")).max(500).optional(),
   serp_feature: nullableLimitedText(80),
-  target_ids: z.array(idInput).max(500).optional(),
+  severity: z
+    .enum(["info", "warning", "urgent"])
+    .optional()
+    .describe("Alert severity. When omitted, the server chooses a condition-specific default."),
+  target_ids: z
+    .array(z.union([publicIdInput("kw"), publicIdInput("tag")]))
+    .max(500)
+    .optional(),
   target_type: alertTargetTypeInput.optional(),
   threshold_position: z.number().int().min(1).max(100).nullable().optional(),
   top_n: z.number().int().min(1).max(100).nullable().optional(),
 };
+
+function validateAlertTargets(
+  value: {
+    target_ids?: string[] | undefined;
+    target_type?: z.output<typeof alertTargetTypeInput> | undefined;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (!value.target_ids?.length) return;
+
+  const expectedPrefix =
+    value.target_type === "keyword" ? "kw" : value.target_type === "tag" ? "tag" : null;
+  if (!expectedPrefix) {
+    ctx.addIssue({
+      code: "custom",
+      message: "All-target rules cannot include target IDs.",
+      path: ["target_ids"],
+    });
+    return;
+  }
+
+  for (const [index, targetId] of value.target_ids.entries()) {
+    if (!matchesPublicId(targetId, expectedPrefix)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Expected a ${expectedPrefix}_ public ID v2.`,
+        path: ["target_ids", index],
+      });
+    }
+  }
+}
 
 export const listAlertRulesInputSchema = listProjectResourcesInputSchema;
 
@@ -684,24 +992,26 @@ export const createAlertRuleInputSchema = z
   .object({
     ...requestOptionsInput,
     ...alertRuleInputShape,
-    project_id: idInput,
+    project_id: projectIdInput,
   })
-  .strict();
+  .strict()
+  .superRefine(validateAlertTargets);
 
 export const updateAlertRuleInputSchema = z
   .object({
     ...requestOptionsInput,
     ...projectSelectionInput,
     ...alertRuleInputShape,
-    rule_id: idInput,
+    rule_id: ruleIdInput,
   })
-  .strict();
+  .strict()
+  .superRefine(validateAlertTargets);
 
 export const deleteAlertRuleInputSchema = z
   .object({
     ...requestOptionsInput,
     ...projectSelectionInput,
-    rule_id: idInput,
+    rule_id: ruleIdInput,
   })
   .strict();
 
@@ -710,15 +1020,15 @@ export const listTriggeredAlertsInputSchema = listProjectResourcesInputSchema;
 export const muteTriggeredAlertInputSchema = z
   .object({
     ...requestOptionsInput,
-    alert_id: idInput,
-    project_id: idInput,
+    alert_id: alertIdInput,
+    project_id: projectIdInput,
   })
   .strict();
 
 export const markProjectAlertsReadInputSchema = z
   .object({
     ...requestOptionsInput,
-    project_id: idInput,
+    project_id: projectIdInput,
   })
   .strict();
 
@@ -729,8 +1039,12 @@ export const listTeamInvitesInputSchema = listProjectResourcesInputSchema;
 export const createTeamInviteInputSchema = z
   .object({
     ...requestOptionsInput,
-    email: z.email().trim().max(254),
-    project_id: idInput,
+    email: z
+      .email()
+      .trim()
+      .max(254)
+      .describe("Email address of the person to invite to the project."),
+    project_id: projectIdInput,
     role: teamInviteRoleInput,
   })
   .strict();
@@ -738,24 +1052,24 @@ export const createTeamInviteInputSchema = z
 export const revokeTeamInviteInputSchema = z
   .object({
     ...requestOptionsInput,
-    invite_id: idInput,
-    project_id: idInput,
+    invite_id: inviteIdInput,
+    project_id: projectIdInput,
   })
   .strict();
 
 export const resendTeamInviteInputSchema = z
   .object({
     ...requestOptionsInput,
-    invite_id: idInput,
-    project_id: idInput,
+    invite_id: inviteIdInput,
+    project_id: projectIdInput,
   })
   .strict();
 
 export const updateTeamMemberRoleInputSchema = z
   .object({
     ...requestOptionsInput,
-    member_id: idInput,
-    project_id: idInput,
+    member_id: memberIdInput,
+    project_id: projectIdInput,
     role: teamInviteRoleInput,
   })
   .strict();
@@ -763,8 +1077,8 @@ export const updateTeamMemberRoleInputSchema = z
 export const removeTeamMemberInputSchema = z
   .object({
     ...requestOptionsInput,
-    member_id: idInput,
-    project_id: idInput,
+    member_id: memberIdInput,
+    project_id: projectIdInput,
   })
   .strict();
 
@@ -774,17 +1088,17 @@ export const listTrafficSnapshotsInputSchema = z
     limit: z.number().int().min(1).max(200).optional(),
     offset: z.number().int().min(0).optional(),
     paths: z.array(z.string().trim().min(1).max(500)).max(50).optional(),
-    project_id: idInput,
+    project_id: projectIdInput,
     start_date: dateInput,
   })
   .strict();
 
 export const listSearchPerformanceQueryStatsInputSchema = z
   .object({
-    connection_id: idInput.optional(),
+    connection_id: connectionIdInput.optional(),
     end_date: dateInput,
     limit: z.number().int().min(1).max(1000).optional(),
-    project_id: idInput,
+    project_id: projectIdInput,
     query: optionalLimitedText(1000),
     start_date: dateInput,
   })
@@ -793,7 +1107,7 @@ export const listSearchPerformanceQueryStatsInputSchema = z
 export const syncProjectTrafficInputSchema = z
   .object({
     ...requestOptionsInput,
-    project_id: idInput,
+    project_id: projectIdInput,
   })
   .strict();
 
@@ -818,8 +1132,8 @@ export const providerConnectionInputSchema = z
     enabled: z.boolean().optional(),
     login: providerSecretInput,
     primary: z.boolean().optional(),
-    priority: z.number().int().min(0).max(10000).optional(),
-    project_id: idInput,
+    priority: z.number().int().min(0).max(1000).optional(),
+    project_id: projectIdInput,
     provider_id: providerIdInput,
     secret: providerSecretInput,
   })
@@ -829,7 +1143,7 @@ export const testProviderConnectionInputSchema = z
   .object({
     credentials: providerCredentialsInputSchema.optional(),
     login: providerSecretInput,
-    project_id: idInput,
+    project_id: projectIdInput,
     provider_id: providerIdInput,
     secret: providerSecretInput,
   })
@@ -840,8 +1154,8 @@ export const updateProviderSettingsInputSchema = z
     ...requestOptionsInput,
     enabled: z.boolean().optional(),
     primary: z.boolean().optional(),
-    priority: z.number().int().min(0).max(10000).optional(),
-    project_id: idInput,
+    priority: z.number().int().min(0).max(1000).optional(),
+    project_id: projectIdInput,
     provider_id: providerIdInput,
   })
   .strict()
@@ -862,8 +1176,10 @@ export const updateProviderSettingsInputSchema = z
 export const setProviderEnabledInputSchema = z
   .object({
     ...requestOptionsInput,
-    enabled: z.boolean(),
-    project_id: idInput,
+    enabled: z
+      .boolean()
+      .describe("Whether this provider connection should be active for the project."),
+    project_id: projectIdInput,
     provider_id: providerIdInput,
   })
   .strict();
@@ -871,7 +1187,7 @@ export const setProviderEnabledInputSchema = z
 export const providerActionInputSchema = z
   .object({
     ...requestOptionsInput,
-    project_id: idInput,
+    project_id: projectIdInput,
     provider_id: providerIdInput,
   })
   .strict();
@@ -879,8 +1195,13 @@ export const providerActionInputSchema = z
 export const setProviderPriorityInputSchema = z
   .object({
     ...requestOptionsInput,
-    priority: z.number().int().min(0).max(10000),
-    project_id: idInput,
+    priority: z
+      .number()
+      .int()
+      .min(0)
+      .max(1000)
+      .describe("Ordering value that determines this provider's preference."),
+    project_id: projectIdInput,
     provider_id: providerIdInput,
   })
   .strict();
@@ -889,49 +1210,132 @@ export const setPrimaryProviderInputSchema = z
   .object({
     ...requestOptionsInput,
     primary: z.boolean().optional(),
-    project_id: idInput,
+    project_id: projectIdInput,
     provider_id: providerIdInput,
   })
   .strict();
 
 export const savedViewFiltersInputSchema = z
   .object({
-    change: savedViewChangeFilterInput,
-    contains: z.string().trim().max(180),
-    country: savedViewCountryFilterInput,
-    device: savedViewDeviceFilterInput,
-    position: z.array(savedViewPositionFilterInput).max(4),
-    serp: z.array(savedViewSerpFilterInput).max(6),
-    tags: z.array(tagInput).max(12),
-    vol_max: z.number().min(0),
-    vol_min: z.number().min(0),
-    wrong_url: z.boolean(),
+    change: savedViewChangeFilterInput.default("any"),
+    contains: z.string().trim().max(80).default(""),
+    intents: z.array(z.string().trim().min(1).max(80)).max(20).default([]),
+    last_check: z.enum(["any", "completed", "failed", "running"]).default("any"),
+    position: z.array(savedViewPositionFilterInput).max(4).default([]),
+    serp: z.array(savedViewSerpFilterInput).max(8).default([]),
+    tags: z.array(tagInput).max(20).default([]),
+    topics: z.array(z.string().trim().min(1).max(80)).max(20).default([]),
+    url_changed: z.boolean().default(false),
+    vol_max: z.number().min(0).max(50).default(50),
+    vol_min: z.number().min(0).max(50).default(0),
+    wrong_url: z.boolean().default(false),
   })
   .strict();
 
-export const savedViewConfigInputSchema = z
+export const keywordSavedViewConfigInputSchema = z
   .object({
-    filters: savedViewFiltersInputSchema,
-    search: z.string().trim().max(180),
+    filters: savedViewFiltersInputSchema.default({
+      change: "any",
+      contains: "",
+      intents: [],
+      last_check: "any",
+      position: [],
+      serp: [],
+      tags: [],
+      topics: [],
+      url_changed: false,
+      vol_max: 50,
+      vol_min: 0,
+      wrong_url: false,
+    }),
+    lens: z
+      .object({
+        device: savedViewDeviceFilterInput.default("all"),
+        location_id: z.string().trim().min(1).nullable().default(null),
+      })
+      .strict()
+      .default({ device: "all", location_id: null }),
+    search: z.string().trim().max(120).default(""),
+    surface: z.literal("keywords").default("keywords"),
+    version: z.literal(1).default(1),
   })
   .strict();
 
-export const listSavedViewsInputSchema = listProjectResourcesInputSchema;
+export const competitorSavedViewConfigInputSchema = z
+  .object({
+    filters: z
+      .object({
+        excluded_keyword_ids: z.array(keywordIdInput).max(10_000).default([]),
+        position: z.enum(["all", "top3", "top10"]).default("all"),
+        tag: z.string().trim().min(1).max(40).nullable().default(null),
+      })
+      .strict()
+      .default({ excluded_keyword_ids: [], position: "all", tag: null }),
+    scope: z
+      .object({
+        device: deviceInput.describe("Device selected for the competitor comparison."),
+        engine: z.literal("google").describe("Search engine used for competitor comparison."),
+        location_id: z
+          .string()
+          .trim()
+          .min(1)
+          .describe("Location identifier selected for the competitor comparison."),
+      })
+      .strict()
+      .describe("Market scope whose competitor view is being saved."),
+    surface: z.literal("competitors").describe("Saved-view surface for competitor comparisons."),
+    version: z.literal(1).describe("Competitor saved-view schema version."),
+  })
+  .strict();
+
+export const savedViewConfigInputSchema = z.union([
+  keywordSavedViewConfigInputSchema,
+  competitorSavedViewConfigInputSchema,
+]);
+
+export const savedViewSurfaceInput = z
+  .enum(["keywords", "competitors"])
+  .describe("Application surface whose saved views should be listed or created.");
+
+export const listSavedViewsInputSchema = z
+  .object({
+    ...paginationInput,
+    project_id: projectIdInput,
+    surface: savedViewSurfaceInput.optional(),
+  })
+  .strict();
 
 export const createSavedViewInputSchema = z
   .object({
     ...requestOptionsInput,
-    config: savedViewConfigInputSchema,
-    name: z.string().trim().min(1).max(120),
-    project_id: idInput,
+    config: savedViewConfigInputSchema.describe(
+      "Saved-view filters and search settings chosen by the user.",
+    ),
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(48)
+      .describe("Human-readable name chosen for the saved view."),
+    project_id: projectIdInput,
+    surface: savedViewSurfaceInput.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.surface && value.surface !== value.config.surface) {
+      ctx.addIssue({
+        code: "custom",
+        message: "surface must match config.surface.",
+        path: ["surface"],
+      });
+    }
+  });
 
 export const deleteSavedViewInputSchema = z
   .object({
     ...requestOptionsInput,
-    project_id: idInput,
-    view_id: idInput,
+    project_id: projectIdInput,
+    view_id: viewIdInput,
   })
   .strict();
 
@@ -940,17 +1344,22 @@ export const listCompetitorsInputSchema = listProjectResourcesInputSchema;
 export const addCompetitorInputSchema = z
   .object({
     ...requestOptionsInput,
-    domain: z.string().trim().min(1).max(253),
+    domain: z
+      .string()
+      .trim()
+      .min(1)
+      .max(253)
+      .describe("Competitor domain to track alongside the project."),
     label: optionalLimitedText(120),
-    project_id: idInput,
+    project_id: projectIdInput,
   })
   .strict();
 
 export const removeCompetitorInputSchema = z
   .object({
     ...requestOptionsInput,
-    competitor_id: idInput,
-    project_id: idInput,
+    competitor_id: competitorIdInput,
+    project_id: projectIdInput,
   })
   .strict();
 
@@ -958,7 +1367,7 @@ const notificationPreferenceInput = z.boolean().optional();
 
 export const getNotificationPreferencesInputSchema = z
   .object({
-    project_id: idInput,
+    project_id: projectIdInput,
   })
   .strict();
 
@@ -975,7 +1384,7 @@ export const updateNotificationPreferencesInputSchema = z
     import_in_app: notificationPreferenceInput,
     invite_email: notificationPreferenceInput,
     invite_in_app: notificationPreferenceInput,
-    project_id: idInput,
+    project_id: projectIdInput,
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -1006,7 +1415,7 @@ export const listMigrationTokensInputSchema = listProjectResourcesInputSchema;
 export const mintMigrationTokenInputSchema = z
   .object({
     ...requestOptionsInput,
-    project_id: idInput,
+    project_id: projectIdInput,
     scope: migrationScopeInput.optional(),
   })
   .strict();
@@ -1014,7 +1423,7 @@ export const mintMigrationTokenInputSchema = z
 export const revokeMigrationTokenInputSchema = z
   .object({
     ...requestOptionsInput,
-    project_id: idInput,
-    token_id: idInput,
+    project_id: projectIdInput,
+    token_id: migrationTokenIdInput,
   })
   .strict();

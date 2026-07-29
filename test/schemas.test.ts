@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { publicId } from "./fixtures.js";
+
 import {
+  analyzeBacklinksInputSchema,
   costEstimateFrequencyInput,
+  createSavedViewInputSchema,
   exportRankHistoryInputSchema,
   getKeywordMetricsInputSchema,
   keywordBulkInputSchema,
@@ -9,9 +13,11 @@ import {
   listRankedKeywordSuggestionsInputSchema,
   listSignalsInputSchema,
   listTrafficSnapshotsInputSchema,
+  loadMoreBacklinkRowsInputSchema,
   locationKeyInput,
   providerCredentialsInputSchema,
   providerIdInput,
+  publicIdInput,
   rankCheckFrequencyInput,
   researchKeywordsInputSchema,
   runRankCheckInputSchema,
@@ -23,6 +29,10 @@ import {
 } from "../src/schemas.js";
 
 describe("tool input schemas", () => {
+  it("rejects prefixes outside the closed public ID registry", () => {
+    expect(() => publicIdInput("unknown" as never)).toThrow("Unsupported public ID prefix");
+  });
+
   it("accepts absolute URLs, relative paths, and explicit null target URLs", () => {
     expect(targetUrlValueInput.parse("https://example.com/rank")).toBe("https://example.com/rank");
     expect(targetUrlValueInput.parse("/rank")).toBe("/rank");
@@ -68,7 +78,7 @@ describe("tool input schemas", () => {
       updateProjectDefaultsInputSchema.parse({
         auto_schedule: true,
         frequency: "daily",
-        project_id: "prj_1",
+        project_id: publicId("prj"),
       }),
     ).toThrow();
     expect(
@@ -106,7 +116,7 @@ describe("tool input schemas", () => {
   it("requires tags for bulk tag operations", () => {
     expect(() =>
       keywordBulkInputSchema.parse({
-        keyword_ids: ["kw_1"],
+        keyword_ids: [publicId("kw")],
         operation: "remove_tags",
       }),
     ).toThrow("tags are required for tag bulk operations.");
@@ -115,7 +125,7 @@ describe("tool input schemas", () => {
   it("requires frequency or schedule for bulk frequency operations", () => {
     expect(() =>
       keywordBulkInputSchema.parse({
-        keyword_ids: ["kw_1"],
+        keyword_ids: [publicId("kw")],
         operation: "set_frequency",
       }),
     ).toThrow("frequency or schedule is required.");
@@ -140,9 +150,42 @@ describe("tool input schemas", () => {
   it("accepts provider ids for server-side validation", () => {
     expect(providerIdInput.parse("future-provider")).toBe("future-provider");
     expect(
-      runRankCheckInputSchema.parse({ keyword_id: "kw_1", provider_id: "future-serp-provider" }),
+      runRankCheckInputSchema.parse({
+        keyword_id: publicId("kw"),
+        provider_id: "future-serp-provider",
+      }),
     ).toMatchObject({ provider_id: "future-serp-provider" });
     expect(() => providerIdInput.parse("")).toThrow();
+  });
+
+  it("requires the saved-view surface to match its config", () => {
+    expect(() =>
+      createSavedViewInputSchema.parse({
+        config: {
+          filters: {
+            change: "any",
+            contains: "",
+            intents: [],
+            last_check: "any",
+            position: [],
+            serp: [],
+            tags: [],
+            topics: [],
+            url_changed: false,
+            vol_max: 50,
+            vol_min: 0,
+            wrong_url: false,
+          },
+          lens: { device: "all", location_id: null },
+          search: "",
+          surface: "keywords",
+          version: 1,
+        },
+        name: "Keywords",
+        project_id: publicId("prj"),
+        surface: "competitors",
+      }),
+    ).toThrow("surface must match config.surface.");
   });
 
   it("validates ranked suggestion offsets and analytics dates", () => {
@@ -151,23 +194,23 @@ describe("tool input schemas", () => {
         fresh: true,
         limit: 100,
         offset: 100,
-        project_id: "prj_1",
+        project_id: publicId("prj"),
       }),
     ).toMatchObject({ offset: 100 });
     expect(() =>
-      listRankedKeywordSuggestionsInputSchema.parse({ offset: 50, project_id: "prj_1" }),
+      listRankedKeywordSuggestionsInputSchema.parse({ offset: 50, project_id: publicId("prj") }),
     ).toThrow();
     expect(
       listTrafficSnapshotsInputSchema.parse({
         end_date: "2026-06-30",
-        project_id: "prj_1",
+        project_id: publicId("prj"),
         start_date: "2026-06-01",
       }),
     ).toMatchObject({ start_date: "2026-06-01" });
     expect(() =>
       listTrafficSnapshotsInputSchema.parse({
         end_date: "June 30",
-        project_id: "prj_1",
+        project_id: publicId("prj"),
         start_date: "2026-06-01",
       }),
     ).toThrow();
@@ -180,26 +223,30 @@ describe("tool input schemas", () => {
         include_clickstream: true,
         max_cost_cents: 8,
         mode: "auto",
-        project_id: "prj_1",
+        project_id: publicId("prj"),
         result_limit: 500,
         seed: "rank tracker",
       }),
     ).toMatchObject({ estimate_only: true, max_cost_cents: 8, result_limit: 500 });
     expect(() =>
-      researchKeywordsInputSchema.parse({ project_id: "prj_1", result_limit: 200, seed: "seo" }),
+      researchKeywordsInputSchema.parse({
+        project_id: publicId("prj"),
+        result_limit: 200,
+        seed: "seo",
+      }),
     ).toThrow();
     expect(
       getKeywordMetricsInputSchema.parse({
         estimate_only: true,
         keywords: ["rank tracker", "seo api"],
         max_cost_cents: 4,
-        project_id: "prj_1",
+        project_id: publicId("prj"),
       }),
     ).toMatchObject({ estimate_only: true, max_cost_cents: 4 });
     expect(() =>
       researchKeywordsInputSchema.parse({
         max_cost_cents: 0,
-        project_id: "prj_1",
+        project_id: publicId("prj"),
         seed: "seo",
       }),
     ).toThrow();
@@ -207,18 +254,116 @@ describe("tool input schemas", () => {
       getKeywordMetricsInputSchema.parse({
         keywords: ["seo"],
         max_cost_cents: -1,
-        project_id: "prj_1",
+        project_id: publicId("prj"),
       }),
     ).toThrow();
     expect(() =>
-      getKeywordMetricsInputSchema.parse({ keywords: [], project_id: "prj_1" }),
+      getKeywordMetricsInputSchema.parse({ keywords: [], project_id: publicId("prj") }),
     ).toThrow();
     expect(() =>
       getKeywordMetricsInputSchema.parse({
         keywords: Array.from({ length: 701 }, (_, index) => `keyword ${index}`),
-        project_id: "prj_1",
+        project_id: publicId("prj"),
       }),
     ).toThrow();
+  });
+
+  it("accepts the backlinks analyze enums and result-limit union", () => {
+    for (const result_limit of [100, 300, 500, 1000] as const) {
+      expect(
+        analyzeBacklinksInputSchema.parse({
+          mode: result_limit === 100 ? "as_is" : "one_per_domain",
+          project_id: publicId("prj"),
+          result_limit,
+          target: "example.com",
+          target_scope: result_limit === 100 ? "site" : "page",
+        }),
+      ).toMatchObject({ result_limit });
+    }
+  });
+
+  it("keeps the backlinks analyze schema strict and rejects invalid constrained values", () => {
+    expect(() =>
+      analyzeBacklinksInputSchema.parse({
+        project_id: publicId("prj"),
+        result_limit: 200,
+        target: "example.com",
+      }),
+    ).toThrow();
+    expect(() =>
+      analyzeBacklinksInputSchema.parse({
+        mode: "per_domain",
+        project_id: publicId("prj"),
+        target: "example.com",
+      }),
+    ).toThrow();
+    expect(() =>
+      analyzeBacklinksInputSchema.parse({
+        project_id: publicId("prj"),
+        target: "example.com",
+        target_scope: "domain",
+      }),
+    ).toThrow();
+    expect(() =>
+      analyzeBacklinksInputSchema.parse({
+        max_cost_cents: 0,
+        project_id: publicId("prj"),
+        target: "example.com",
+      }),
+    ).toThrow();
+    expect(() =>
+      analyzeBacklinksInputSchema.parse({
+        project_id: publicId("prj"),
+        target: "example.com",
+        unexpected: true,
+      }),
+    ).toThrow();
+  });
+
+  it("accepts load-more limits in 100-row increments through 1000", () => {
+    for (const limit of [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]) {
+      expect(
+        loadMoreBacklinkRowsInputSchema.parse({
+          include_subdomains: false,
+          limit,
+          project_id: publicId("prj"),
+          target: "https://example.com/pricing",
+          target_scope: "page",
+        }),
+      ).toMatchObject({ limit });
+    }
+  });
+
+  it("keeps the load-more schema strict and rejects invalid scope or limits", () => {
+    for (const limit of [0, 150, 1100]) {
+      expect(() =>
+        loadMoreBacklinkRowsInputSchema.parse({
+          limit,
+          project_id: publicId("prj"),
+          target: "example.com",
+        }),
+      ).toThrow();
+    }
+    expect(() =>
+      loadMoreBacklinkRowsInputSchema.parse({
+        project_id: publicId("prj"),
+        target: "example.com",
+        target_scope: "domain",
+      }),
+    ).toThrow();
+    expect(() =>
+      loadMoreBacklinkRowsInputSchema.parse({
+        project_id: publicId("prj"),
+        target: "example.com",
+        unexpected: true,
+      }),
+    ).toThrow();
+  });
+
+  it("describes every backlinks input field", () => {
+    for (const schema of [analyzeBacklinksInputSchema, loadMoreBacklinkRowsInputSchema]) {
+      expect(Object.values(schema.shape).every((field) => field.description)).toBe(true);
+    }
   });
 
   it("accepts JSON rank-history export filters and rejects CSV or excessive keywords", () => {
@@ -226,29 +371,33 @@ describe("tool input schemas", () => {
       exportRankHistoryInputSchema.parse({
         cursor: "cursor_1",
         granularity: "weekly",
-        keyword_id: ["kw_1", "kw_2"],
+        keyword_ids: [publicId("kw"), publicId("kw", "b")],
         limit: 200,
-        project_id: "prj_1",
+        project_id: publicId("prj"),
         range: "all",
       }),
     ).toMatchObject({ granularity: "weekly", range: "all" });
     expect(() =>
-      exportRankHistoryInputSchema.parse({ format: "csv", project_id: "prj_1" }),
+      exportRankHistoryInputSchema.parse({ format: "csv", project_id: publicId("prj") }),
     ).toThrow();
     expect(() =>
       exportRankHistoryInputSchema.parse({
-        keyword_id: Array.from({ length: 501 }, (_, index) => `kw_${index}`),
-        project_id: "prj_1",
+        keyword_ids: Array.from({ length: 501 }, (_, index) =>
+          publicId("kw", String.fromCharCode(97 + (index % 26))),
+        ),
+        project_id: publicId("prj"),
       }),
     ).toThrow();
   });
 
   it("requires domain or name on project updates", () => {
-    expect(updateProjectInputSchema.parse({ name: "Renamed", project_id: "prj_1" })).toEqual({
+    expect(
+      updateProjectInputSchema.parse({ name: "Renamed", project_id: publicId("prj") }),
+    ).toEqual({
       name: "Renamed",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
-    expect(() => updateProjectInputSchema.parse({ project_id: "prj_1" })).toThrow(
+    expect(() => updateProjectInputSchema.parse({ project_id: publicId("prj") })).toThrow(
       "domain or name is required.",
     );
   });
@@ -257,19 +406,19 @@ describe("tool input schemas", () => {
     expect(() =>
       updateProjectDefaultsInputSchema.parse({
         frequency: "custom_cron",
-        project_id: "prj_1",
+        project_id: publicId("prj"),
       }),
     ).toThrow("Custom cron schedules require a cron expression.");
     expect(
       updateProjectDefaultsInputSchema.parse({
         cron_expression: "0 7 * * 1",
         frequency: "custom_cron",
-        project_id: "prj_1",
+        project_id: publicId("prj"),
       }),
     ).toEqual({
       cron_expression: "0 7 * * 1",
       frequency: "custom_cron",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
   });
 
@@ -278,7 +427,7 @@ describe("tool input schemas", () => {
       updateProjectDefaultsInputSchema.parse({
         device: "mobile",
         frequency: "daily",
-        project_id: "prj_1",
+        project_id: publicId("prj"),
       }),
     ).toThrow("country and device must be provided together.");
     expect(
@@ -286,7 +435,7 @@ describe("tool input schemas", () => {
         device: "mobile",
         frequency: "daily",
         location_key: "US",
-        project_id: "prj_1",
+        project_id: publicId("prj"),
       }),
     ).toMatchObject({ device: "mobile", location_key: "US" });
   });
@@ -295,29 +444,29 @@ describe("tool input schemas", () => {
     expect(
       keywordBulkInputSchema.parse({
         frequency: "daily",
-        keyword_ids: ["kw_1"],
+        keyword_ids: [publicId("kw")],
         operation: "set_frequency",
       }),
     ).toEqual({
       frequency: "daily",
-      keyword_ids: ["kw_1"],
+      keyword_ids: [publicId("kw")],
       operation: "set_frequency",
     });
   });
 
   it("requires dot-separated signal types on the list signals filter", () => {
     expect(
-      listSignalsInputSchema.parse({ project_id: "prj_1", type: "deploy.completed" }),
+      listSignalsInputSchema.parse({ project_id: publicId("prj"), type: "deploy.completed" }),
     ).toMatchObject({ type: "deploy.completed" });
-    expect(listSignalsInputSchema.parse({ project_id: "prj_1" })).toEqual({
-      project_id: "prj_1",
+    expect(listSignalsInputSchema.parse({ project_id: publicId("prj") })).toEqual({
+      project_id: publicId("prj"),
     });
     expect(() =>
-      listSignalsInputSchema.parse({ project_id: "prj_1", type: "not-dot-separated" }),
+      listSignalsInputSchema.parse({ project_id: publicId("prj"), type: "not-dot-separated" }),
     ).toThrow("type must be dot-separated");
-    expect(() => listSignalsInputSchema.parse({ project_id: "prj_1", type: "Deploy.Bad" })).toThrow(
-      "type must be dot-separated",
-    );
+    expect(() =>
+      listSignalsInputSchema.parse({ project_id: publicId("prj"), type: "Deploy.Bad" }),
+    ).toThrow("type must be dot-separated");
   });
 
   it("requires provider credential endpoints to be http(s) URLs", () => {

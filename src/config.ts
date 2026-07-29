@@ -2,6 +2,7 @@ import { BisibilityClient } from "@bisibility/sdk";
 import type { BisibilityClientConfig } from "@bisibility/sdk";
 
 import { DEFAULT_BISIBILITY_BASE_URL } from "./constants.js";
+import { type PublicIdForPrefix, projectIdInput } from "./schemas.js";
 
 export interface BisibilityMcpEnv {
   BISIBILITY_API_KEY?: string;
@@ -16,6 +17,7 @@ export const BISIBILITY_MCP_TOOLSETS = [
   "account",
   "alerts",
   "analytics",
+  "backlinks",
   "checks",
   "competitors",
   "keywords",
@@ -42,7 +44,7 @@ export interface BisibilityMcpToolConfig {
 export interface BisibilityMcpConfig {
   apiKey: string;
   baseUrl: string;
-  projectId?: string;
+  projectId?: PublicIdForPrefix<"prj">;
 }
 
 function cleanEnvValue(value: string | undefined) {
@@ -102,7 +104,15 @@ export function readBisibilityMcpConfig(env: BisibilityMcpEnv = process.env): Bi
   }
 
   const projectId = cleanEnvValue(env.BISIBILITY_PROJECT_ID);
-  return { apiKey, baseUrl, ...(projectId ? { projectId } : {}) };
+  if (projectId) {
+    const parsedProjectId = projectIdInput.safeParse(projectId);
+    if (!parsedProjectId.success) {
+      throw new Error("BISIBILITY_PROJECT_ID must be a prj_ public ID v2.");
+    }
+    return { apiKey, baseUrl, projectId: parsedProjectId.data };
+  }
+
+  return { apiKey, baseUrl };
 }
 
 export function createBisibilityClientFromEnv(

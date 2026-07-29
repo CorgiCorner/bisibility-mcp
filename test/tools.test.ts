@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it, vi } from "vitest";
+import * as z from "zod/v4";
 
 import type {
   BisibilityMcpToolset,
@@ -12,8 +13,10 @@ import {
   activeMigrationToken,
   alertRule,
   apiKey,
+  backlinksSnapshot,
   competitor,
   competitorListResponse,
+  competitorSavedViewConfig,
   costEstimate,
   createdApiKey,
   dataResponse,
@@ -27,6 +30,7 @@ import {
   provider,
   providerConnection,
   providerRate,
+  publicId,
   rankCheck,
   savedView,
   savedViewConfig,
@@ -45,94 +49,97 @@ type ToolResult = {
 type ToolHandler = (input?: unknown) => Promise<ToolResult>;
 
 const expectedToolNames = [
-  "bisibility_get_health",
-  "bisibility_get_capabilities",
-  "bisibility_get_cloud_import_compatibility",
-  "bisibility_get_provider_rates",
-  "bisibility_get_cost_estimate",
-  "bisibility_get_me",
-  "bisibility_update_me",
-  "bisibility_list_projects",
-  "bisibility_create_project",
-  "bisibility_get_project",
-  "bisibility_search_locations",
-  "bisibility_update_project",
-  "bisibility_delete_project",
-  "bisibility_get_project_defaults",
-  "bisibility_update_project_defaults",
-  "bisibility_list_keywords",
-  "bisibility_list_ranked_keyword_suggestions",
-  "bisibility_research_keywords",
-  "bisibility_get_keyword_metrics",
-  "bisibility_add_keywords",
-  "bisibility_get_keyword",
-  "bisibility_update_keyword",
-  "bisibility_set_keyword_target_url",
-  "bisibility_delete_keyword",
-  "bisibility_bulk_update_keywords",
-  "bisibility_run_rank_check",
-  "bisibility_get_rank_history",
-  "bisibility_export_rank_history",
-  "bisibility_list_sitemap_monitors",
-  "bisibility_enable_sitemap_monitor",
-  "bisibility_disable_sitemap_monitor",
-  "bisibility_get_rank_check_result",
-  "bisibility_create_signal",
-  "bisibility_list_signals",
-  "bisibility_list_traffic_snapshots",
-  "bisibility_list_search_performance_query_stats",
-  "bisibility_sync_project_traffic",
-  "bisibility_list_api_keys",
-  "bisibility_create_api_key",
-  "bisibility_revoke_api_key",
-  "bisibility_list_project_api_keys",
-  "bisibility_create_project_api_key",
-  "bisibility_list_personal_tokens",
-  "bisibility_create_personal_token",
-  "bisibility_revoke_personal_token",
-  "bisibility_list_webhooks",
-  "bisibility_create_webhook",
-  "bisibility_update_webhook",
-  "bisibility_delete_webhook",
-  "bisibility_list_alert_rules",
-  "bisibility_create_alert_rule",
-  "bisibility_update_alert_rule",
-  "bisibility_delete_alert_rule",
-  "bisibility_list_triggered_alerts",
-  "bisibility_mute_triggered_alert",
-  "bisibility_mark_project_alerts_read",
-  "bisibility_list_team_members",
-  "bisibility_list_team_invites",
-  "bisibility_create_team_invite",
-  "bisibility_revoke_team_invite",
-  "bisibility_resend_team_invite",
-  "bisibility_update_team_member_role",
-  "bisibility_remove_team_member",
-  "bisibility_list_providers",
-  "bisibility_connect_provider",
-  "bisibility_test_provider_connection",
-  "bisibility_update_provider_settings",
-  "bisibility_set_provider_enabled",
-  "bisibility_set_provider_priority",
-  "bisibility_set_primary_provider",
-  "bisibility_disconnect_provider",
-  "bisibility_list_saved_views",
-  "bisibility_create_saved_view",
-  "bisibility_delete_saved_view",
-  "bisibility_list_competitors",
-  "bisibility_add_competitor",
-  "bisibility_remove_competitor",
-  "bisibility_get_notification_preferences",
-  "bisibility_update_notification_preferences",
-  "bisibility_list_migration_tokens",
-  "bisibility_mint_migration_token",
-  "bisibility_revoke_migration_token",
+  "get_health",
+  "get_capabilities",
+  "get_cloud_import_compatibility",
+  "get_provider_rates",
+  "get_cost_estimate",
+  "get_me",
+  "update_me",
+  "list_projects",
+  "create_project",
+  "get_project",
+  "search_locations",
+  "update_project",
+  "delete_project",
+  "get_project_defaults",
+  "update_project_defaults",
+  "list_keywords",
+  "list_ranked_keyword_suggestions",
+  "research_keywords",
+  "analyze_backlinks",
+  "load_more_backlink_rows",
+  "get_keyword_metrics",
+  "add_keywords",
+  "get_keyword",
+  "update_keyword",
+  "set_keyword_target_url",
+  "delete_keyword",
+  "bulk_update_keywords",
+  "run_rank_check",
+  "get_rank_history",
+  "export_rank_history",
+  "list_sitemap_monitors",
+  "enable_sitemap_monitor",
+  "disable_sitemap_monitor",
+  "get_rank_check_result",
+  "create_signal",
+  "list_signals",
+  "list_traffic_snapshots",
+  "list_search_performance_query_stats",
+  "sync_project_traffic",
+  "list_api_keys",
+  "create_api_key",
+  "revoke_api_key",
+  "list_project_api_keys",
+  "create_project_api_key",
+  "list_personal_tokens",
+  "create_personal_token",
+  "revoke_personal_token",
+  "list_webhooks",
+  "create_webhook",
+  "update_webhook",
+  "delete_webhook",
+  "list_alert_rules",
+  "create_alert_rule",
+  "update_alert_rule",
+  "delete_alert_rule",
+  "list_triggered_alerts",
+  "mute_triggered_alert",
+  "mark_project_alerts_read",
+  "list_team_members",
+  "list_team_invites",
+  "create_team_invite",
+  "revoke_team_invite",
+  "resend_team_invite",
+  "update_team_member_role",
+  "remove_team_member",
+  "list_providers",
+  "connect_provider",
+  "test_provider_connection",
+  "update_provider_settings",
+  "set_provider_enabled",
+  "set_provider_priority",
+  "set_primary_provider",
+  "disconnect_provider",
+  "list_saved_views",
+  "create_saved_view",
+  "delete_saved_view",
+  "list_competitors",
+  "add_competitor",
+  "remove_competitor",
+  "get_notification_preferences",
+  "update_notification_preferences",
+  "list_migration_tokens",
+  "mint_migration_token",
+  "revoke_migration_token",
 ];
 
 function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeof vi.fn>> {
   return {
     addCompetitor: vi.fn(),
     addKeywords: vi.fn(),
+    analyzeBacklinks: vi.fn(),
     bulkUpdateKeywords: vi.fn(),
     connectProvider: vi.fn(),
     createAlertRule: vi.fn(),
@@ -183,6 +190,7 @@ function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeo
     listTrafficSnapshots: vi.fn(),
     listTriggeredAlerts: vi.fn(),
     listWebhooks: vi.fn(),
+    loadMoreBacklinkRows: vi.fn(),
     markProjectAlertsRead: vi.fn(),
     mintMigrationToken: vi.fn(),
     muteTriggeredAlert: vi.fn(),
@@ -257,58 +265,111 @@ function parsedContent(result: ToolResult) {
   return JSON.parse(result.content[0]?.text ?? "null") as unknown;
 }
 
+function missingRequiredDescriptions(schema: Record<string, unknown>, path: string): string[] {
+  const properties =
+    schema.properties && typeof schema.properties === "object"
+      ? (schema.properties as Record<string, Record<string, unknown>>)
+      : {};
+  const missing = (Array.isArray(schema.required) ? schema.required : [])
+    .filter((name): name is string => typeof name === "string")
+    .filter((name) => typeof properties[name]?.description !== "string")
+    .map((name) => `${path}.${name}`);
+
+  for (const [name, property] of Object.entries(properties)) {
+    missing.push(...missingRequiredDescriptions(property, `${path}.${name}`));
+  }
+  if (schema.items && typeof schema.items === "object") {
+    missing.push(
+      ...missingRequiredDescriptions(schema.items as Record<string, unknown>, `${path}[]`),
+    );
+  }
+  for (const keyword of ["allOf", "anyOf", "oneOf"] as const) {
+    const branches = schema[keyword];
+    if (!Array.isArray(branches)) continue;
+    for (const [index, branch] of branches.entries()) {
+      if (branch && typeof branch === "object") {
+        missing.push(
+          ...missingRequiredDescriptions(
+            branch as Record<string, unknown>,
+            `${path}.${keyword}[${index}]`,
+          ),
+        );
+      }
+    }
+  }
+  return missing;
+}
+
 describe("registerBisibilityTools", () => {
   it("registers the Bisibility MCP tool surface", () => {
     const { configs, server, tools } = createToolHarness();
 
     expect([...tools.keys()]).toEqual(expectedToolNames);
     expect(server.registerTool).toHaveBeenCalledTimes(expectedToolNames.length);
-    expect(configs.get("bisibility_add_keywords")).toMatchObject({
+    expect(configs.get("add_keywords")).toMatchObject({
       title: "Add keywords",
     });
-    expect(configs.get("bisibility_list_keywords")?.inputSchema).toHaveProperty("project_id");
+    expect(configs.get("list_keywords")?.inputSchema).toHaveProperty("project_id");
+    expect(configs.get("run_rank_check")?.description).toContain("may incur provider cost");
+    expect(configs.get("run_rank_check")?.description).toContain("explicit user approval");
+  });
+
+  it("uses the same unprefixed snake_case names as the built-in HTTP server", () => {
+    const { tools } = createToolHarness();
+
+    expect([...tools.keys()].every((name) => /^[a-z][a-z0-9_]*$/.test(name))).toBe(true);
+    expect([...tools.keys()].some((name) => name.startsWith("bisibility_"))).toBe(false);
+  });
+
+  it("describes every required input in the advertised JSON schema", () => {
+    const { configs } = createToolHarness();
+    const missing = [...configs].flatMap(([name, config]) => {
+      const schema = z.toJSONSchema(z.object(config.inputSchema as z.ZodRawShape), {
+        io: "input",
+      });
+      return missingRequiredDescriptions(schema as Record<string, unknown>, name);
+    });
+
+    expect(missing).toEqual([]);
   });
 
   it("registers only read tools in read-only mode", () => {
     const { tools } = createToolHarness({ readOnly: true });
     const mutatingPrefixes = [
-      "bisibility_create_",
-      "bisibility_update_",
-      "bisibility_delete_",
-      "bisibility_remove_",
-      "bisibility_revoke_",
-      "bisibility_set_",
-      "bisibility_add_",
-      "bisibility_bulk_",
-      "bisibility_run_",
-      "bisibility_sync_",
-      "bisibility_enable_",
-      "bisibility_disable_",
-      "bisibility_connect_",
-      "bisibility_disconnect_",
-      "bisibility_mint_",
-      "bisibility_mark_",
-      "bisibility_mute_",
-      "bisibility_resend_",
+      "create_",
+      "update_",
+      "delete_",
+      "remove_",
+      "revoke_",
+      "set_",
+      "add_",
+      "bulk_",
+      "run_",
+      "sync_",
+      "enable_",
+      "disable_",
+      "connect_",
+      "disconnect_",
+      "mint_",
+      "mark_",
+      "mute_",
+      "resend_",
     ];
 
-    expect(tools.size).toBe(34);
+    expect(tools.size).toBe(32);
     expect(
       [...tools.keys()].filter((name) =>
         mutatingPrefixes.some((prefix) => name.startsWith(prefix)),
       ),
     ).toEqual([]);
-    expect(tools.has("bisibility_research_keywords")).toBe(false);
-    expect(tools.has("bisibility_get_keyword_metrics")).toBe(false);
+    expect(tools.has("research_keywords")).toBe(false);
+    expect(tools.has("get_keyword_metrics")).toBe(false);
   });
 
   it("registers only tools from selected API-domain toolsets", () => {
     const { tools } = createToolHarness({ toolsets: ["rank-history"] });
 
-    expect([...tools.keys()]).toEqual([
-      "bisibility_get_rank_history",
-      "bisibility_export_rank_history",
-    ]);
+    expect([...tools.keys()]).toEqual(["get_rank_history", "export_rank_history"]);
   });
 
   it("composes read-only mode with toolset filtering", () => {
@@ -319,32 +380,39 @@ describe("registerBisibilityTools", () => {
     });
 
     expect([...tools.keys()]).toEqual([
-      "bisibility_search_locations",
-      "bisibility_list_keywords",
-      "bisibility_list_ranked_keyword_suggestions",
-      "bisibility_get_keyword",
-      "bisibility_get_rank_history",
-      "bisibility_export_rank_history",
+      "search_locations",
+      "list_keywords",
+      "get_keyword",
+      "get_rank_history",
+      "export_rank_history",
     ]);
   });
 
   it("annotates read, write, and destructive tools from their classifications", () => {
     const { configs } = createToolHarness();
 
-    expect(configs.get("bisibility_list_keywords")?.annotations).toEqual({
+    expect(configs.get("list_keywords")?.annotations).toEqual({
       destructiveHint: false,
       readOnlyHint: true,
     });
-    expect(configs.get("bisibility_create_project")?.annotations).toEqual({
+    expect(configs.get("create_project")?.annotations).toEqual({
       destructiveHint: false,
       readOnlyHint: false,
     });
-    expect(configs.get("bisibility_delete_project")?.annotations).toEqual({
+    expect(configs.get("delete_project")?.annotations).toEqual({
       destructiveHint: true,
       readOnlyHint: false,
     });
-    expect(configs.get("bisibility_bulk_update_keywords")?.annotations).toEqual({
+    expect(configs.get("bulk_update_keywords")?.annotations).toEqual({
       destructiveHint: true,
+      readOnlyHint: false,
+    });
+    expect(configs.get("list_ranked_keyword_suggestions")?.annotations).toEqual({
+      destructiveHint: false,
+      readOnlyHint: false,
+    });
+    expect(configs.get("test_provider_connection")?.annotations).toEqual({
+      destructiveHint: false,
       readOnlyHint: false,
     });
   });
@@ -362,7 +430,7 @@ describe("registerBisibilityTools", () => {
     const { callTool, client } = createToolHarness();
     client.listProjects.mockResolvedValueOnce(listResponse([project()]));
 
-    const result = await callTool("bisibility_list_projects");
+    const result = await callTool("list_projects");
 
     expect(result.isError).toBeUndefined();
     expect(parsedContent(result)).toEqual(listResponse([project()]));
@@ -374,14 +442,14 @@ describe("registerBisibilityTools", () => {
     const { callTool, client } = createToolHarness();
     const me = {
       email: "owner@example.com",
-      id: "user_1",
+      id: publicId("usr"),
       name: "Owner",
-      projects: [{ domain: "example.com", id: "prj_1", name: "Example", role: "owner" }],
+      projects: [{ domain: "example.com", id: publicId("prj"), name: "Example", role: "owner" }],
     };
     const token = {
       created_at: "2026-07-12T00:00:00.000Z",
       expires_at: null,
-      id: "pat_1",
+      id: publicId("pat"),
       last_used_at: null,
       name: "Agent",
       prefix: "bsp_live_example",
@@ -392,14 +460,14 @@ describe("registerBisibilityTools", () => {
       created_at: "2026-07-12T00:00:00.000Z",
       description: null,
       enabled: true,
-      id: "wh_1",
+      id: publicId("webhook"),
       last_delivery_at: null,
       updated_at: "2026-07-12T00:00:00.000Z",
       url: "https://example.com/hook",
     };
     client.getMe.mockResolvedValueOnce(me);
     client.updateMe.mockResolvedValueOnce({ ...me, name: "Renamed" });
-    client.createProject.mockResolvedValueOnce(project({ id: "prj_new" }));
+    client.createProject.mockResolvedValueOnce(project({ id: publicId("prj", "c") }));
     client.listProjectApiKeys.mockResolvedValueOnce(listResponse([createdApiKey()]));
     client.createProjectApiKey.mockResolvedValueOnce(createdApiKey());
     client.listMyTokens.mockResolvedValueOnce(listResponse([token]));
@@ -417,36 +485,39 @@ describe("registerBisibilityTools", () => {
     client.updateWebhook.mockResolvedValueOnce({ ...webhook, enabled: false });
     client.deleteWebhook.mockResolvedValueOnce(webhook);
 
-    await callTool("bisibility_get_me");
-    await callTool("bisibility_update_me", { name: "Renamed" });
-    await callTool("bisibility_create_project", {
+    await callTool("get_me");
+    await callTool("update_me", { name: "Renamed" });
+    await callTool("create_project", {
       domain: "example.com",
       name: "Example",
       tracking_scope: "city",
     });
-    await callTool("bisibility_list_project_api_keys", { limit: 10, project_id: "prj_1" });
-    await callTool("bisibility_create_project_api_key", { name: "CI", project_id: "prj_1" });
-    await callTool("bisibility_list_personal_tokens");
-    const created = await callTool("bisibility_create_personal_token", {
+    await callTool("list_project_api_keys", { limit: 10, project_id: publicId("prj") });
+    await callTool("create_project_api_key", {
+      name: "CI",
+      project_id: publicId("prj"),
+    });
+    await callTool("list_personal_tokens");
+    const created = await callTool("create_personal_token", {
       expires_in_days: 90,
       name: "Agent",
       scope: "admin",
     });
-    await callTool("bisibility_revoke_personal_token", { token_id: "current" });
-    await callTool("bisibility_list_webhooks", { limit: 10, project_id: "prj_1" });
-    await callTool("bisibility_create_webhook", {
+    await callTool("revoke_personal_token", { token_id: publicId("pat") });
+    await callTool("list_webhooks", { limit: 10, project_id: publicId("prj") });
+    await callTool("create_webhook", {
       hmac_secret: "1234567890123456",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       url: webhook.url,
     });
-    await callTool("bisibility_update_webhook", {
+    await callTool("update_webhook", {
       enabled: false,
-      project_id: "prj_1",
-      webhook_id: "wh_1",
+      project_id: publicId("prj"),
+      webhook_id: publicId("webhook"),
     });
-    await callTool("bisibility_delete_webhook", {
-      project_id: "prj_1",
-      webhook_id: "wh_1",
+    await callTool("delete_webhook", {
+      project_id: publicId("prj"),
+      webhook_id: publicId("webhook"),
     });
 
     expect(client.updateMe).toHaveBeenCalledWith({ name: "Renamed" }, undefined);
@@ -454,15 +525,19 @@ describe("registerBisibilityTools", () => {
       { domain: "example.com", name: "Example", trackingScope: "city" },
       undefined,
     );
-    expect(client.listProjectApiKeys).toHaveBeenCalledWith("prj_1", { limit: 10 });
-    expect(client.createProjectApiKey).toHaveBeenCalledWith("prj_1", { name: "CI" }, undefined);
+    expect(client.listProjectApiKeys).toHaveBeenCalledWith(publicId("prj"), { limit: 10 });
+    expect(client.createProjectApiKey).toHaveBeenCalledWith(
+      publicId("prj"),
+      { name: "CI" },
+      undefined,
+    );
     expect(client.createMyToken).toHaveBeenCalledWith(
       { expiresInDays: 90, name: "Agent", scope: "admin" },
       undefined,
     );
-    expect(client.listWebhooks).toHaveBeenCalledWith("prj_1", { limit: 10 });
+    expect(client.listWebhooks).toHaveBeenCalledWith(publicId("prj"), { limit: 10 });
     expect(client.createWebhook).toHaveBeenCalledWith(
-      "prj_1",
+      publicId("prj"),
       { hmac_secret: "1234567890123456", url: webhook.url },
       undefined,
     );
@@ -473,11 +548,36 @@ describe("registerBisibilityTools", () => {
     const { callTool, client } = createToolHarness();
     client.getKeyword.mockResolvedValueOnce(keyword());
 
-    await callTool("bisibility_get_keyword", { keyword_id: "kw_1", project_id: "prj_2" });
-
-    expect(client.getKeyword).toHaveBeenCalledWith("kw_1", {
-      headers: { "X-Bisibility-Project": "prj_2" },
+    await callTool("get_keyword", {
+      keyword_id: publicId("kw"),
+      project_id: publicId("prj", "b"),
     });
+
+    expect(client.getKeyword).toHaveBeenCalledWith(publicId("kw"), {
+      headers: { "X-Bisibility-Project": publicId("prj", "b") },
+    });
+  });
+
+  it("passes unknown strict public IDs to the SDK and rejects malformed IDs before a call", async () => {
+    const { callTool, client } = createToolHarness();
+    const keywordId = publicId("kw", "y");
+    const projectId = publicId("prj", "z");
+    client.getKeyword.mockResolvedValueOnce(keyword({ id: keywordId, project_id: projectId }));
+
+    await expect(
+      callTool("get_keyword", { keyword_id: keywordId, project_id: projectId }),
+    ).resolves.toMatchObject({ structuredContent: { id: keywordId } });
+
+    expect(client.getKeyword).toHaveBeenCalledWith(keywordId, {
+      headers: { "X-Bisibility-Project": projectId },
+    });
+
+    const invalid = await callTool("get_keyword", {
+      keyword_id: "kw_1",
+      project_id: projectId,
+    });
+    expect(invalid.isError).toBe(true);
+    expect(client.getKeyword).toHaveBeenCalledTimes(1);
   });
 
   it("calls project and discovery SDK methods", async () => {
@@ -486,15 +586,15 @@ describe("registerBisibilityTools", () => {
     client.getCapabilities.mockResolvedValueOnce({ data: [{ name: "listProjects" }] });
     client.getProject.mockResolvedValueOnce(project());
 
-    await expect(callTool("bisibility_get_health")).resolves.toMatchObject({
+    await expect(callTool("get_health")).resolves.toMatchObject({
       structuredContent: { status: "ok" },
     });
-    await expect(callTool("bisibility_get_capabilities")).resolves.toMatchObject({
+    await expect(callTool("get_capabilities")).resolves.toMatchObject({
       structuredContent: { data: [{ name: "listProjects" }] },
     });
-    await callTool("bisibility_get_project", { project_id: "prj_1" });
+    await callTool("get_project", { project_id: publicId("prj") });
 
-    expect(client.getProject).toHaveBeenCalledWith("prj_1");
+    expect(client.getProject).toHaveBeenCalledWith(publicId("prj"));
   });
 
   it("reads every project default field for the resolved project id", async () => {
@@ -502,11 +602,11 @@ describe("registerBisibilityTools", () => {
     const defaults = projectDefaults();
     client.getProjectDefaults.mockResolvedValueOnce(defaults);
 
-    const result = await callTool("bisibility_get_project_defaults", {
-      project_id: "prj_1",
+    const result = await callTool("get_project_defaults", {
+      project_id: publicId("prj"),
     });
 
-    expect(client.getProjectDefaults).toHaveBeenCalledWith("prj_1");
+    expect(client.getProjectDefaults).toHaveBeenCalledWith(publicId("prj"));
     expect(parsedContent(result)).toEqual(defaults);
     expect(result.structuredContent).toEqual(defaults);
     expect(parsedContent(result)).toMatchObject({
@@ -525,8 +625,8 @@ describe("registerBisibilityTools", () => {
     });
     client.getProjectDefaults.mockRejectedValueOnce(error);
 
-    const result = await callTool("bisibility_get_project_defaults", {
-      project_id: "prj_missing",
+    const result = await callTool("get_project_defaults", {
+      project_id: publicId("prj", "d"),
     });
 
     expect(result.isError).toBe(true);
@@ -549,7 +649,6 @@ describe("registerBisibilityTools", () => {
           country_code: "US",
           display_name: "Austin, Texas, United States",
           hl: "en",
-          id: "loc_1",
           kind: "city",
           language_label: "English",
           location_key: "US/Texas/Austin",
@@ -562,25 +661,19 @@ describe("registerBisibilityTools", () => {
     client.searchLocations.mockResolvedValueOnce(response);
 
     await expect(
-      callTool("bisibility_search_locations", { country: "US", limit: 20, q: "Austin" }),
+      callTool("search_locations", { country: "US", limit: 20, q: "Austin" }),
     ).resolves.toMatchObject({ structuredContent: response });
 
     expect(client.searchLocations).toHaveBeenCalledWith({ country: "US", limit: 20, q: "Austin" });
-    expect(configs.get("bisibility_search_locations")?.description).toContain(
-      "location_key verbatim",
-    );
-    expect(configs.get("bisibility_add_keywords")?.description).toContain(
-      "bisibility_search_locations",
-    );
-    expect(configs.get("bisibility_update_keyword")?.description).toContain(
-      "bisibility_search_locations",
-    );
+    expect(configs.get("search_locations")?.description).toContain("location_key verbatim");
+    expect(configs.get("add_keywords")?.description).toContain("search_locations");
+    expect(configs.get("update_keyword")?.description).toContain("search_locations");
   });
 
   it("rejects pagination inputs on list projects", async () => {
     const { callTool, client } = createToolHarness();
 
-    const result = await callTool("bisibility_list_projects", { cursor: "cursor_1", limit: 10 });
+    const result = await callTool("list_projects", { cursor: "cursor_1", limit: 10 });
 
     expect(result.isError).toBe(true);
     expect(client.listProjects).not.toHaveBeenCalled();
@@ -591,34 +684,34 @@ describe("registerBisibilityTools", () => {
     client.updateProject.mockResolvedValueOnce(project({ name: "Renamed" }));
     client.deleteProject.mockResolvedValueOnce(project());
 
-    await callTool("bisibility_update_project", {
+    await callTool("update_project", {
       domain: "renamed.example",
       idempotency_key: "idem_project",
       name: "Renamed",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
-    await callTool("bisibility_update_project", {
+    await callTool("update_project", {
       name: "Renamed only",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
-    await callTool("bisibility_delete_project", {
+    await callTool("delete_project", {
       idempotency_key: "idem_delete_project",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
 
     expect(client.updateProject).toHaveBeenNthCalledWith(
       1,
-      "prj_1",
+      publicId("prj"),
       { domain: "renamed.example", name: "Renamed" },
       { idempotencyKey: "idem_project" },
     );
     expect(client.updateProject).toHaveBeenNthCalledWith(
       2,
-      "prj_1",
+      publicId("prj"),
       { name: "Renamed only" },
       undefined,
     );
-    expect(client.deleteProject).toHaveBeenCalledWith("prj_1", {
+    expect(client.deleteProject).toHaveBeenCalledWith(publicId("prj"), {
       idempotencyKey: "idem_delete_project",
     });
   });
@@ -626,7 +719,7 @@ describe("registerBisibilityTools", () => {
   it("requires name or domain when updating a project", async () => {
     const { callTool, client } = createToolHarness();
 
-    const result = await callTool("bisibility_update_project", { project_id: "prj_1" });
+    const result = await callTool("update_project", { project_id: publicId("prj") });
 
     expect(result.isError).toBe(true);
     expect(JSON.stringify(parsedContent(result))).toContain("domain or name is required.");
@@ -637,38 +730,40 @@ describe("registerBisibilityTools", () => {
     const { callTool, client } = createToolHarness();
     client.updateProjectDefaults.mockResolvedValue(projectDefaults());
 
-    await callTool("bisibility_update_project_defaults", {
+    await callTool("update_project_defaults", {
       country: "United States",
       cron_expression: null,
       device: "desktop",
       frequency: "daily",
       idempotency_key: "idem_defaults",
       jitter_minutes: 30,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
+      serp_stop_on_match: false,
       timezone: "Europe/Warsaw",
     });
-    await callTool("bisibility_update_project_defaults", {
+    await callTool("update_project_defaults", {
       frequency: "weekly",
       location_key: "US/California/Los Angeles",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
 
     expect(client.updateProjectDefaults).toHaveBeenNthCalledWith(
       1,
-      "prj_1",
+      publicId("prj"),
       {
         country: "United States",
         cron_expression: null,
         device: "desktop",
         frequency: "daily",
         jitter_minutes: 30,
+        serp_stop_on_match: false,
         timezone: "Europe/Warsaw",
       },
       { idempotencyKey: "idem_defaults" },
     );
     expect(client.updateProjectDefaults).toHaveBeenNthCalledWith(
       2,
-      "prj_1",
+      publicId("prj"),
       { frequency: "weekly", location_key: "US/California/Los Angeles" },
       undefined,
     );
@@ -677,10 +772,10 @@ describe("registerBisibilityTools", () => {
   it("requires country and device together on project defaults updates", async () => {
     const { callTool, client } = createToolHarness();
 
-    const result = await callTool("bisibility_update_project_defaults", {
+    const result = await callTool("update_project_defaults", {
       country: "United States",
       frequency: "daily",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
 
     expect(result.isError).toBe(true);
@@ -696,22 +791,24 @@ describe("registerBisibilityTools", () => {
     client.createApiKey.mockResolvedValueOnce(createdApiKey());
     client.revokeApiKey.mockResolvedValueOnce(apiKey({ revoked_at: "2026-01-09T00:00:00.000Z" }));
 
-    await callTool("bisibility_list_api_keys", { cursor: "key_cursor", limit: 10 });
-    await callTool("bisibility_create_api_key", {
+    await callTool("list_api_keys", { cursor: "key_cursor", limit: 10 });
+    await callTool("create_api_key", {
+      expires_in_days: 90,
       idempotency_key: "idem_key",
       name: "CI key",
+      scope: "write",
     });
-    await callTool("bisibility_revoke_api_key", {
+    await callTool("revoke_api_key", {
       idempotency_key: "idem_revoke_key",
-      key_id: "key_1",
+      key_id: publicId("key"),
     });
 
     expect(client.listApiKeys).toHaveBeenCalledWith({ cursor: "key_cursor", limit: 10 });
     expect(client.createApiKey).toHaveBeenCalledWith(
-      { name: "CI key" },
+      { expires_in_days: 90, name: "CI key", scope: "write" },
       { idempotencyKey: "idem_key" },
     );
-    expect(client.revokeApiKey).toHaveBeenCalledWith("key_1", {
+    expect(client.revokeApiKey).toHaveBeenCalledWith(publicId("key"), {
       idempotencyKey: "idem_revoke_key",
     });
   });
@@ -720,7 +817,7 @@ describe("registerBisibilityTools", () => {
     const { callTool, client } = createToolHarness();
     client.listKeywords.mockResolvedValueOnce(listResponse([keyword()], "next"));
 
-    await callTool("bisibility_list_keywords", {
+    await callTool("list_keywords", {
       country: "United States",
       cursor: "cursor_1",
       device: "mobile",
@@ -728,14 +825,14 @@ describe("registerBisibilityTools", () => {
       limit: 25,
       position_gt: 3,
       position_lt: 20,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       search: "rank",
       sort: "-updated_at",
       tag: "Product",
       topic: "tools",
     });
 
-    expect(client.listKeywords).toHaveBeenCalledWith("prj_1", {
+    expect(client.listKeywords).toHaveBeenCalledWith(publicId("prj"), {
       country: "United States",
       cursor: "cursor_1",
       device: "mobile",
@@ -754,7 +851,7 @@ describe("registerBisibilityTools", () => {
     const { callTool, client, configs } = createToolHarness();
     const response = {
       cached: false,
-      connections: [{ id: "conn_1", label: "DataForSEO", provider: "dataforseo" }],
+      connections: [{ id: publicId("conn"), label: "DataForSEO", provider: "dataforseo" }],
       cost_cents: 2,
       fetched_at: "2026-07-22T10:00:00.000Z",
       offset: 100,
@@ -772,25 +869,23 @@ describe("registerBisibilityTools", () => {
     client.listRankedKeywordSuggestions.mockResolvedValueOnce(response);
 
     await expect(
-      callTool("bisibility_list_ranked_keyword_suggestions", {
-        connection_id: "conn_1",
+      callTool("list_ranked_keyword_suggestions", {
+        connection_id: publicId("conn"),
         fresh: true,
         limit: 100,
         offset: 100,
-        project_id: "prj_1",
+        project_id: publicId("prj"),
       }),
     ).resolves.toMatchObject({ structuredContent: response });
 
-    expect(client.listRankedKeywordSuggestions).toHaveBeenCalledWith("prj_1", {
-      connectionId: "conn_1",
+    expect(client.listRankedKeywordSuggestions).toHaveBeenCalledWith(publicId("prj"), {
+      connectionId: publicId("conn"),
       fresh: true,
       limit: 100,
       offset: 100,
     });
-    expect(configs.get("bisibility_list_ranked_keyword_suggestions")?.description).toContain(
-      "$0.02",
-    );
-    expect(configs.get("bisibility_list_ranked_keyword_suggestions")?.description).toContain(
+    expect(configs.get("list_ranked_keyword_suggestions")?.description).toContain("$0.02");
+    expect(configs.get("list_ranked_keyword_suggestions")?.description).toContain(
       "cached for 12 hours",
     );
   });
@@ -799,7 +894,7 @@ describe("registerBisibilityTools", () => {
     const { callTool, client, configs } = createToolHarness();
     const response = {
       cached: false,
-      connections: [{ id: "conn_1", label: "DataForSEO", provider: "dataforseo" }],
+      connections: [{ id: publicId("conn"), label: "DataForSEO", provider: "dataforseo" }],
       cost_cents: 2,
       fetched_at: "2026-07-22T10:00:00.000Z",
       provider: "DataForSEO",
@@ -846,20 +941,20 @@ describe("registerBisibilityTools", () => {
     client.researchKeywords.mockResolvedValueOnce(response);
 
     await expect(
-      callTool("bisibility_research_keywords", {
-        connection_id: "conn_1",
+      callTool("research_keywords", {
+        connection_id: publicId("conn"),
         fresh: true,
         include_clickstream: true,
         max_cost_cents: 6,
         mode: "auto",
-        project_id: "prj_1",
+        project_id: publicId("prj"),
         result_limit: 300,
         seed: "rank tracker",
       }),
     ).resolves.toMatchObject({ structuredContent: response });
 
-    expect(client.researchKeywords).toHaveBeenCalledWith("prj_1", {
-      connectionId: "conn_1",
+    expect(client.researchKeywords).toHaveBeenCalledWith(publicId("prj"), {
+      connectionId: publicId("conn"),
       fresh: true,
       includeClickstream: true,
       maxCostCents: 6,
@@ -867,26 +962,122 @@ describe("registerBisibilityTools", () => {
       resultLimit: 300,
       seed: "rank tracker",
     });
-    expect(configs.get("bisibility_research_keywords")?.description).toContain("one seed per call");
-    expect(configs.get("bisibility_research_keywords")?.description).toContain(
-      "bisibility_get_provider_rates",
+    expect(configs.get("research_keywords")?.description).toContain("one seed per call");
+    expect(configs.get("research_keywords")?.description).toContain("get_provider_rates");
+    expect(configs.get("research_keywords")?.description).toContain("double provider cost");
+    expect(configs.get("research_keywords")?.description).toContain("Requires API write scope");
+    expect(configs.get("research_keywords")?.description).toContain("estimate_only first");
+  });
+
+  it("analyzes backlinks and loads more rows with mapped defined options", async () => {
+    const { callTool, client, configs } = createToolHarness();
+    const analyzed = dataResponse(backlinksSnapshot());
+    const loaded = dataResponse(
+      backlinksSnapshot({
+        cost_cents: 1,
+        fetched_row_count: 200,
+        history: [],
+        rows: [],
+        summary: backlinksSnapshot().summary,
+      }),
     );
-    expect(configs.get("bisibility_research_keywords")?.description).toContain(
-      "double provider cost",
-    );
-    expect(configs.get("bisibility_research_keywords")?.description).toContain(
-      "Requires API write scope",
-    );
-    expect(configs.get("bisibility_research_keywords")?.description).toContain(
-      "estimate_only first",
-    );
+    client.analyzeBacklinks.mockResolvedValue(analyzed);
+    client.loadMoreBacklinkRows.mockResolvedValue(loaded);
+
+    await expect(
+      callTool("analyze_backlinks", {
+        estimate_only: true,
+        fresh: true,
+        include_subdomains: false,
+        max_cost_cents: 7,
+        mode: "one_per_domain",
+        project_id: publicId("prj"),
+        result_limit: 300,
+        target: "https://example.com/pricing",
+        target_scope: "page",
+      }),
+    ).resolves.toMatchObject({ structuredContent: analyzed });
+    await expect(
+      callTool("analyze_backlinks", {
+        project_id: publicId("prj"),
+        target: "example.com",
+      }),
+    ).resolves.toMatchObject({ structuredContent: analyzed });
+    await expect(
+      callTool("load_more_backlink_rows", {
+        include_subdomains: false,
+        limit: 300,
+        project_id: publicId("prj"),
+        target: "https://example.com/pricing",
+        target_scope: "page",
+      }),
+    ).resolves.toMatchObject({ structuredContent: loaded });
+    await expect(
+      callTool("load_more_backlink_rows", {
+        project_id: publicId("prj"),
+        target: "example.com",
+      }),
+    ).resolves.toMatchObject({ structuredContent: loaded });
+
+    expect(client.analyzeBacklinks).toHaveBeenNthCalledWith(1, publicId("prj"), {
+      estimateOnly: true,
+      fresh: true,
+      includeSubdomains: false,
+      maxCostCents: 7,
+      mode: "one_per_domain",
+      resultLimit: 300,
+      target: "https://example.com/pricing",
+      targetScope: "page",
+    });
+    expect(client.analyzeBacklinks).toHaveBeenNthCalledWith(2, publicId("prj"), {
+      target: "example.com",
+    });
+    expect(client.loadMoreBacklinkRows).toHaveBeenNthCalledWith(1, publicId("prj"), {
+      includeSubdomains: false,
+      limit: 300,
+      target: "https://example.com/pricing",
+      targetScope: "page",
+    });
+    expect(client.loadMoreBacklinkRows).toHaveBeenNthCalledWith(2, publicId("prj"), {
+      target: "example.com",
+    });
+    expect(configs.get("analyze_backlinks")?.description).toContain("Requires API write scope");
+    expect(configs.get("analyze_backlinks")?.description).toContain("estimate_only first");
+    expect(configs.get("analyze_backlinks")?.description).toContain("within fetched rows");
+    expect(configs.get("load_more_backlink_rows")?.description).toContain("snapshot_expired");
+  });
+
+  it("returns zod issues for invalid backlinks inputs without calling the SDK", async () => {
+    const { callTool, client } = createToolHarness();
+
+    const analyzeResult = await callTool("analyze_backlinks", {
+      project_id: publicId("prj"),
+      result_limit: 200,
+      target: "example.com",
+    });
+    const loadMoreResult = await callTool("load_more_backlink_rows", {
+      limit: 150,
+      project_id: publicId("prj"),
+      target: "example.com",
+    });
+
+    expect(analyzeResult.isError).toBe(true);
+    expect(parsedContent(analyzeResult)).toMatchObject({
+      error: { issues: expect.any(Array), name: "ZodError" },
+    });
+    expect(loadMoreResult.isError).toBe(true);
+    expect(parsedContent(loadMoreResult)).toMatchObject({
+      error: { issues: expect.any(Array), name: "ZodError" },
+    });
+    expect(client.analyzeBacklinks).not.toHaveBeenCalled();
+    expect(client.loadMoreBacklinkRows).not.toHaveBeenCalled();
   });
 
   it("hydrates nullable metrics with per-keyword cache guidance", async () => {
     const { callTool, client, configs } = createToolHarness();
     const response = {
       cached_count: 1,
-      connections: [{ id: "conn_1", label: "DataForSEO", provider: "dataforseo" }],
+      connections: [{ id: publicId("conn"), label: "DataForSEO", provider: "dataforseo" }],
       cost_cents: 2,
       fetched_at: "2026-07-22T10:00:00.000Z",
       fetched_count: 1,
@@ -907,40 +1098,34 @@ describe("registerBisibilityTools", () => {
     client.getKeywordMetrics.mockResolvedValueOnce(response);
 
     await expect(
-      callTool("bisibility_get_keyword_metrics", {
-        connection_id: "conn_1",
+      callTool("get_keyword_metrics", {
+        connection_id: publicId("conn"),
         fresh: true,
         include_clickstream: false,
         keywords: ["rank tracker", "seo api"],
-        project_id: "prj_1",
+        project_id: publicId("prj"),
       }),
     ).resolves.toMatchObject({ structuredContent: response });
 
-    expect(client.getKeywordMetrics).toHaveBeenCalledWith("prj_1", {
-      connection_id: "conn_1",
+    expect(client.getKeywordMetrics).toHaveBeenCalledWith(publicId("prj"), {
+      connection_id: publicId("conn"),
       fresh: true,
       include_clickstream: false,
       keywords: ["rank tracker", "seo api"],
     });
-    expect(configs.get("bisibility_get_keyword_metrics")?.description).toContain(
-      "up to 700 keywords",
-    );
-    expect(configs.get("bisibility_get_keyword_metrics")?.description).toContain(
+    expect(configs.get("get_keyword_metrics")?.description).toContain("up to 700 keywords");
+    expect(configs.get("get_keyword_metrics")?.description).toContain(
       "cache each keyword for 12 hours",
     );
-    expect(configs.get("bisibility_get_keyword_metrics")?.description).toContain(
-      "Requires API write scope",
-    );
-    expect(configs.get("bisibility_get_keyword_metrics")?.description).toContain(
-      "estimate_only first",
-    );
+    expect(configs.get("get_keyword_metrics")?.description).toContain("Requires API write scope");
+    expect(configs.get("get_keyword_metrics")?.description).toContain("estimate_only first");
   });
 
   it("forwards free estimate and maximum cost options for research and metrics", async () => {
     const { callTool, client } = createToolHarness();
     const researchEstimate = {
       cached: false,
-      connections: [{ id: "conn_1", label: "DataForSEO", provider: "dataforseo" }],
+      connections: [{ id: publicId("conn"), label: "DataForSEO", provider: "dataforseo" }],
       cost_cents: 2,
       estimate: true,
       fetched_at: "2026-07-22T10:00:00.000Z",
@@ -959,7 +1144,7 @@ describe("registerBisibilityTools", () => {
     };
     const metricsEstimate = {
       cached_count: 1,
-      connections: [{ id: "conn_1", label: "DataForSEO", provider: "dataforseo" }],
+      connections: [{ id: publicId("conn"), label: "DataForSEO", provider: "dataforseo" }],
       cost_cents: 2,
       estimate: true,
       estimated_cost_cents: 2,
@@ -974,28 +1159,28 @@ describe("registerBisibilityTools", () => {
     client.getKeywordMetrics.mockResolvedValueOnce(metricsEstimate);
 
     await expect(
-      callTool("bisibility_research_keywords", {
+      callTool("research_keywords", {
         estimate_only: true,
         max_cost_cents: 3,
-        project_id: "prj_1",
+        project_id: publicId("prj"),
         seed: "rank tracker",
       }),
     ).resolves.toMatchObject({ structuredContent: researchEstimate });
     await expect(
-      callTool("bisibility_get_keyword_metrics", {
+      callTool("get_keyword_metrics", {
         estimate_only: true,
         keywords: ["rank tracker", "seo api"],
         max_cost_cents: 3,
-        project_id: "prj_1",
+        project_id: publicId("prj"),
       }),
     ).resolves.toMatchObject({ structuredContent: metricsEstimate });
 
-    expect(client.researchKeywords).toHaveBeenCalledWith("prj_1", {
+    expect(client.researchKeywords).toHaveBeenCalledWith(publicId("prj"), {
       estimateOnly: true,
       maxCostCents: 3,
       seed: "rank tracker",
     });
-    expect(client.getKeywordMetrics).toHaveBeenCalledWith("prj_1", {
+    expect(client.getKeywordMetrics).toHaveBeenCalledWith(publicId("prj"), {
       estimate_only: true,
       keywords: ["rank tracker", "seo api"],
       max_cost_cents: 3,
@@ -1008,9 +1193,9 @@ describe("registerBisibilityTools", () => {
       data: [
         {
           checked_at: "2026-07-21T10:00:00.000Z",
-          id: "check_1",
+          id: publicId("check"),
           keyword: "rank tracker api",
-          keyword_id: "kw_1",
+          keyword_id: publicId("kw"),
           position: 4,
           previous_position: null,
           ranking_url: "https://example.com/rank-tracker",
@@ -1021,41 +1206,38 @@ describe("registerBisibilityTools", () => {
     client.exportRankHistory.mockResolvedValueOnce(response);
 
     await expect(
-      callTool("bisibility_export_rank_history", {
+      callTool("export_rank_history", {
         cursor: "cursor_1",
         granularity: "weekly",
-        keyword_id: ["kw_1", "kw_2"],
+        keyword_ids: [publicId("kw"), publicId("kw", "b")],
         limit: 25,
-        project_id: "prj_1",
+        project_id: publicId("prj"),
         range: "90",
       }),
     ).resolves.toMatchObject({ structuredContent: response });
 
-    expect(client.exportRankHistory).toHaveBeenCalledWith("prj_1", {
+    expect(client.exportRankHistory).toHaveBeenCalledWith(publicId("prj"), {
       cursor: "cursor_1",
       format: "json",
       granularity: "weekly",
-      keywordIds: ["kw_1", "kw_2"],
+      keywordIds: [publicId("kw"), publicId("kw", "b")],
       limit: 25,
       range: "90",
     });
-    expect(configs.get("bisibility_export_rank_history")?.description).toContain(
-      "REST endpoint directly",
-    );
+    expect(configs.get("export_rank_history")?.description).toContain("REST endpoint directly");
   });
 
   it("lists, enables, and disables sitemap monitors", async () => {
     const { callTool, client } = createToolHarness();
     const monitor = {
       enabled: true,
-      id: "prj_1",
+      id: publicId("prj"),
       latest_snapshot: {
         fetched_at: "2026-07-22T09:00:00.000Z",
-        id: "snapshot_1",
         sitemap_url: "https://example.com/sitemap.xml",
         url_count: 42,
       },
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       sitemap_url: "https://example.com/sitemap.xml",
       status: "active",
     };
@@ -1067,29 +1249,29 @@ describe("registerBisibilityTools", () => {
       status: "disabled",
     });
 
-    await callTool("bisibility_list_sitemap_monitors", { project_id: "prj_1" });
-    await callTool("bisibility_enable_sitemap_monitor", {
+    await callTool("list_sitemap_monitors", { project_id: publicId("prj") });
+    await callTool("enable_sitemap_monitor", {
       idempotency_key: "idem_enable",
-      monitor_id: "prj_1",
-      project_id: "prj_1",
+      monitor_id: publicId("prj"),
+      project_id: publicId("prj"),
     });
-    await callTool("bisibility_disable_sitemap_monitor", {
-      monitor_id: "prj_1",
-      project_id: "prj_1",
+    await callTool("disable_sitemap_monitor", {
+      monitor_id: publicId("prj"),
+      project_id: publicId("prj"),
     });
 
-    expect(client.listSitemapMonitors).toHaveBeenCalledWith("prj_1");
+    expect(client.listSitemapMonitors).toHaveBeenCalledWith(publicId("prj"));
     expect(client.updateSitemapMonitor).toHaveBeenNthCalledWith(
       1,
-      "prj_1",
-      "prj_1",
+      publicId("prj"),
+      publicId("prj"),
       { enabled: true },
       { idempotencyKey: "idem_enable" },
     );
     expect(client.updateSitemapMonitor).toHaveBeenNthCalledWith(
       2,
-      "prj_1",
-      "prj_1",
+      publicId("prj"),
+      publicId("prj"),
       { enabled: false },
       undefined,
     );
@@ -1100,13 +1282,13 @@ describe("registerBisibilityTools", () => {
     client.addKeywords.mockResolvedValueOnce({
       created: 2,
       results: [
-        { keyword: keyword({ id: "kw_1" }), status: "created" },
-        { keyword: keyword({ id: "kw_2", text: "brand search" }), status: "created" },
+        { keyword: keyword({ id: publicId("kw") }), status: "created" },
+        { keyword: keyword({ id: publicId("kw", "b"), text: "brand search" }), status: "created" },
       ],
       skipped: 0,
     });
 
-    await callTool("bisibility_add_keywords", {
+    await callTool("add_keywords", {
       device: "desktop",
       idempotency_key: "idem_1",
       keywords: [
@@ -1117,13 +1299,13 @@ describe("registerBisibilityTools", () => {
           target_url: null,
         },
       ],
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       tags: ["seo"],
       target_url: "https://example.com/rank",
     });
 
     expect(client.addKeywords).toHaveBeenCalledWith(
-      "prj_1",
+      publicId("prj"),
       {
         keywords: [
           {
@@ -1153,7 +1335,7 @@ describe("registerBisibilityTools", () => {
     });
     client.updateKeyword.mockResolvedValueOnce(keyword({ intent: "commercial" }));
 
-    await callTool("bisibility_add_keywords", {
+    await callTool("add_keywords", {
       city: "Los Angeles",
       intent: "commercial",
       keywords: [
@@ -1164,18 +1346,18 @@ describe("registerBisibilityTools", () => {
           topic: "tools",
         },
       ],
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
-    await callTool("bisibility_update_keyword", {
+    await callTool("update_keyword", {
       city: "Warsaw",
       intent: null,
-      keyword_id: "kw_1",
+      keyword_id: publicId("kw"),
       location_key: "PL/Masovian Voivodeship/Warsaw",
       topic: "tools",
     });
 
     expect(client.addKeywords).toHaveBeenCalledWith(
-      "prj_1",
+      publicId("prj"),
       {
         keywords: [
           {
@@ -1190,7 +1372,7 @@ describe("registerBisibilityTools", () => {
       undefined,
     );
     expect(client.updateKeyword).toHaveBeenCalledWith(
-      "kw_1",
+      publicId("kw"),
       {
         city: "Warsaw",
         intent: null,
@@ -1204,8 +1386,8 @@ describe("registerBisibilityTools", () => {
   it("rejects malformed location keys", async () => {
     const { callTool, client } = createToolHarness();
 
-    const result = await callTool("bisibility_update_keyword", {
-      keyword_id: "kw_1",
+    const result = await callTool("update_keyword", {
+      keyword_id: publicId("kw"),
       location_key: "california",
     });
 
@@ -1221,11 +1403,11 @@ describe("registerBisibilityTools", () => {
     client.setKeywordTargetUrl.mockResolvedValueOnce(keyword({ target_url: null }));
     client.deleteKeyword.mockResolvedValueOnce(keyword());
 
-    await callTool("bisibility_get_keyword", { keyword_id: "kw_1" });
-    await callTool("bisibility_update_keyword", {
+    await callTool("get_keyword", { keyword_id: publicId("kw") });
+    await callTool("update_keyword", {
       idempotency_key: "idem_update",
       keyword: "rank tracker api",
-      keyword_id: "kw_1",
+      keyword_id: publicId("kw"),
       schedule: {
         cron_expression: null,
         frequency: "weekly",
@@ -1233,19 +1415,19 @@ describe("registerBisibilityTools", () => {
       tags: ["api"],
       target_url: "/pricing",
     });
-    await callTool("bisibility_set_keyword_target_url", {
+    await callTool("set_keyword_target_url", {
       idempotency_key: "idem_target",
-      keyword_id: "kw_1",
+      keyword_id: publicId("kw"),
       target_url: null,
     });
-    await callTool("bisibility_delete_keyword", {
+    await callTool("delete_keyword", {
       idempotency_key: "idem_delete",
-      keyword_id: "kw_1",
+      keyword_id: publicId("kw"),
     });
 
-    expect(client.getKeyword).toHaveBeenCalledWith("kw_1");
+    expect(client.getKeyword).toHaveBeenCalledWith(publicId("kw"));
     expect(client.updateKeyword).toHaveBeenCalledWith(
-      "kw_1",
+      publicId("kw"),
       {
         keyword: "rank tracker api",
         schedule: {
@@ -1257,10 +1439,10 @@ describe("registerBisibilityTools", () => {
       },
       { idempotencyKey: "idem_update" },
     );
-    expect(client.setKeywordTargetUrl).toHaveBeenCalledWith("kw_1", null, {
+    expect(client.setKeywordTargetUrl).toHaveBeenCalledWith(publicId("kw"), null, {
       idempotencyKey: "idem_target",
     });
-    expect(client.deleteKeyword).toHaveBeenCalledWith("kw_1", {
+    expect(client.deleteKeyword).toHaveBeenCalledWith(publicId("kw"), {
       idempotencyKey: "idem_delete",
     });
   });
@@ -1271,68 +1453,68 @@ describe("registerBisibilityTools", () => {
     client.listRankChecks.mockResolvedValueOnce(listResponse([rankCheck()], "next"));
     client.getRankCheckResult.mockResolvedValueOnce(rankCheck());
 
-    await callTool("bisibility_run_rank_check", {
+    await callTool("run_rank_check", {
       idempotency_key: "idem_check",
-      keyword_id: "kw_1",
+      keyword_id: publicId("kw"),
       provider_id: "dataforseo",
     });
-    await callTool("bisibility_run_rank_check", {
-      keyword_id: "kw_1",
+    await callTool("run_rank_check", {
+      keyword_id: publicId("kw"),
     });
-    await callTool("bisibility_run_rank_check", {
+    await callTool("run_rank_check", {
       async: true,
-      keyword_id: "kw_1",
+      keyword_id: publicId("kw"),
     });
-    await callTool("bisibility_run_rank_check", {
+    await callTool("run_rank_check", {
       async: true,
       idempotency_key: "idem_async",
-      keyword_id: "kw_1",
+      keyword_id: publicId("kw"),
       provider_id: "dataforseo",
     });
-    await callTool("bisibility_get_rank_history", {
+    await callTool("get_rank_history", {
       cursor: "cursor_1",
-      keyword_id: "kw_1",
+      keyword_id: publicId("kw"),
       limit: 10,
       since: "2026-01-01T00:00:00.000Z",
       status: "completed",
       until: "2026-01-31T00:00:00.000Z",
     });
-    await callTool("bisibility_get_rank_check_result", { check_id: "check_1" });
+    await callTool("get_rank_check_result", { check_id: publicId("check") });
 
     expect(client.runRankCheck).toHaveBeenCalledWith(
-      "kw_1",
+      publicId("kw"),
       { provider_id: "dataforseo" },
       { idempotencyKey: "idem_check" },
     );
-    expect(client.runRankCheck).toHaveBeenCalledWith("kw_1", undefined, undefined);
-    expect(client.runRankCheck).toHaveBeenCalledWith("kw_1", undefined, { async: true });
+    expect(client.runRankCheck).toHaveBeenCalledWith(publicId("kw"), undefined, undefined);
+    expect(client.runRankCheck).toHaveBeenCalledWith(publicId("kw"), undefined, { async: true });
     expect(client.runRankCheck).toHaveBeenCalledWith(
-      "kw_1",
+      publicId("kw"),
       { provider_id: "dataforseo" },
       { async: true, idempotencyKey: "idem_async" },
     );
-    expect(client.listRankChecks).toHaveBeenCalledWith("kw_1", {
+    expect(client.listRankChecks).toHaveBeenCalledWith(publicId("kw"), {
       cursor: "cursor_1",
       limit: 10,
       since: "2026-01-01T00:00:00.000Z",
       status: "completed",
       until: "2026-01-31T00:00:00.000Z",
     });
-    expect(client.getRankCheckResult).toHaveBeenCalledWith("check_1");
+    expect(client.getRankCheckResult).toHaveBeenCalledWith(publicId("check"));
   });
 
   it("forwards provider ids for server-side validation", async () => {
     const { callTool, client } = createToolHarness();
     client.runRankCheck.mockResolvedValueOnce(rankCheck());
 
-    const result = await callTool("bisibility_run_rank_check", {
-      keyword_id: "kw_1",
+    const result = await callTool("run_rank_check", {
+      keyword_id: publicId("kw"),
       provider_id: "future-serp-provider",
     });
 
     expect(result.isError).toBeUndefined();
     expect(client.runRankCheck).toHaveBeenCalledWith(
-      "kw_1",
+      publicId("kw"),
       { provider_id: "future-serp-provider" },
       undefined,
     );
@@ -1342,17 +1524,17 @@ describe("registerBisibilityTools", () => {
     const { callTool, client } = createToolHarness();
     client.createSignal.mockResolvedValue(signal());
 
-    await callTool("bisibility_create_signal", {
+    await callTool("create_signal", {
       happened_at: "2026-01-06T00:00:00.000Z",
       idempotency_key: "idem_signal",
-      keyword_id: "kw_1",
+      keyword_id: publicId("kw"),
       payload: { commit: "abc123" },
       severity: "warning",
       source: "deploy",
       type: "deploy.completed",
       url: "https://example.com/releases/42",
     });
-    await callTool("bisibility_create_signal", {
+    await callTool("create_signal", {
       source: "api",
       type: "content.refreshed",
     });
@@ -1361,7 +1543,7 @@ describe("registerBisibilityTools", () => {
       1,
       {
         happened_at: "2026-01-06T00:00:00.000Z",
-        keyword_id: "kw_1",
+        keyword_id: publicId("kw"),
         payload: { commit: "abc123" },
         severity: "warning",
         source: "deploy",
@@ -1380,20 +1562,20 @@ describe("registerBisibilityTools", () => {
   it("rejects invalid signal types, sources, and payloads", async () => {
     const { callTool, client } = createToolHarness();
 
-    const typeResult = await callTool("bisibility_create_signal", {
+    const typeResult = await callTool("create_signal", {
       source: "api",
       type: "not-dot-separated",
     });
-    const sourceResult = await callTool("bisibility_create_signal", {
+    const sourceResult = await callTool("create_signal", {
       source: "manual",
       type: "deploy.completed",
     });
-    const payloadResult = await callTool("bisibility_create_signal", {
+    const payloadResult = await callTool("create_signal", {
       payload: { blob: "x".repeat(9 * 1024) },
       source: "api",
       type: "deploy.completed",
     });
-    const serializationResult = await callTool("bisibility_create_signal", {
+    const serializationResult = await callTool("create_signal", {
       payload: { value: 1n },
       source: "api",
       type: "deploy.completed",
@@ -1417,18 +1599,18 @@ describe("registerBisibilityTools", () => {
     const { callTool, client } = createToolHarness();
     client.listSignals.mockResolvedValue(listResponse([signal()], "signals_next"));
 
-    await callTool("bisibility_list_signals", {
+    await callTool("list_signals", {
       cursor: "signal_cursor",
       from: "2026-01-01T00:00:00.000Z",
       limit: 25,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       source: "rank_tracker",
       to: "2026-01-31T00:00:00.000Z",
       type: "deploy.completed",
     });
-    await callTool("bisibility_list_signals", { project_id: "prj_1" });
+    await callTool("list_signals", { project_id: publicId("prj") });
 
-    expect(client.listSignals).toHaveBeenNthCalledWith(1, "prj_1", {
+    expect(client.listSignals).toHaveBeenNthCalledWith(1, publicId("prj"), {
       cursor: "signal_cursor",
       from: "2026-01-01T00:00:00.000Z",
       limit: 25,
@@ -1436,21 +1618,21 @@ describe("registerBisibilityTools", () => {
       to: "2026-01-31T00:00:00.000Z",
       type: "deploy.completed",
     });
-    expect(client.listSignals).toHaveBeenNthCalledWith(2, "prj_1", {});
+    expect(client.listSignals).toHaveBeenNthCalledWith(2, publicId("prj"), {});
   });
 
   it("reads analytics and triggers project traffic sync", async () => {
     const { callTool, client, configs } = createToolHarness();
     const snapshots = { offset: 0, rows: [], total_count: 0 };
     const queryStats = {
-      connection: { id: "conn_gsc", label: "Search Console", provider: "gsc" },
+      connection: { id: publicId("conn", "b"), label: "Search Console", provider: "gsc" },
       rows: [],
     };
     const sync = {
       connections: 1,
       keyword_snapshots: 0,
       page_snapshots: 3,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       runs: [],
       skipped: [],
     };
@@ -1458,54 +1640,50 @@ describe("registerBisibilityTools", () => {
     client.listSearchPerformanceQueryStats.mockResolvedValueOnce(queryStats);
     client.syncProjectTraffic.mockResolvedValueOnce(sync);
 
-    await callTool("bisibility_list_traffic_snapshots", {
+    await callTool("list_traffic_snapshots", {
       end_date: "2026-06-30",
       limit: 50,
       offset: 0,
       paths: ["/", "/pricing"],
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       start_date: "2026-06-01",
     });
-    await callTool("bisibility_list_search_performance_query_stats", {
-      connection_id: "conn_gsc",
+    await callTool("list_search_performance_query_stats", {
+      connection_id: publicId("conn", "b"),
       end_date: "2026-06-30",
       limit: 100,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       query: "rank tracker",
       start_date: "2026-06-01",
     });
-    const result = await callTool("bisibility_sync_project_traffic", {
+    const result = await callTool("sync_project_traffic", {
       idempotency_key: "sync_1",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
 
-    expect(client.listTrafficSnapshots).toHaveBeenCalledWith("prj_1", {
+    expect(client.listTrafficSnapshots).toHaveBeenCalledWith(publicId("prj"), {
       endDate: "2026-06-30",
       limit: 50,
       offset: 0,
       paths: ["/", "/pricing"],
       startDate: "2026-06-01",
     });
-    expect(client.listSearchPerformanceQueryStats).toHaveBeenCalledWith("prj_1", {
-      connectionId: "conn_gsc",
+    expect(client.listSearchPerformanceQueryStats).toHaveBeenCalledWith(publicId("prj"), {
+      connectionId: publicId("conn", "b"),
       endDate: "2026-06-30",
       limit: 100,
       query: "rank tracker",
       startDate: "2026-06-01",
     });
-    expect(client.syncProjectTraffic).toHaveBeenCalledWith("prj_1", {
+    expect(client.syncProjectTraffic).toHaveBeenCalledWith(publicId("prj"), {
       idempotencyKey: "sync_1",
     });
     expect(result.structuredContent).toEqual(sync);
-    expect(configs.get("bisibility_list_traffic_snapshots")?.description).toContain(
+    expect(configs.get("list_traffic_snapshots")?.description).toContain("project's own connected");
+    expect(configs.get("list_search_performance_query_stats")?.description).toContain(
       "project's own connected",
     );
-    expect(configs.get("bisibility_list_search_performance_query_stats")?.description).toContain(
-      "project's own connected",
-    );
-    expect(configs.get("bisibility_sync_project_traffic")?.description).toContain(
-      "project's own connected",
-    );
+    expect(configs.get("sync_project_traffic")?.description).toContain("project's own connected");
   });
 
   it("lists provider rates and estimates costs", async () => {
@@ -1513,8 +1691,8 @@ describe("registerBisibilityTools", () => {
     client.getProviderRates.mockResolvedValueOnce(dataResponse([providerRate()]));
     client.getCostEstimate.mockResolvedValue(dataResponse(costEstimate()));
 
-    const ratesResult = await callTool("bisibility_get_provider_rates");
-    await callTool("bisibility_get_cost_estimate", {
+    const ratesResult = await callTool("get_provider_rates");
+    await callTool("get_cost_estimate", {
       devices: 2,
       frequency: "weekly",
       keywords: 100,
@@ -1523,7 +1701,7 @@ describe("registerBisibilityTools", () => {
       plan: "starter",
       provider: "serpapi",
     });
-    await callTool("bisibility_get_cost_estimate", { keywords: 50 });
+    await callTool("get_cost_estimate", { keywords: 50 });
 
     expect(ratesResult.structuredContent).toEqual(dataResponse([providerRate()]));
     expect(client.getProviderRates).toHaveBeenCalledWith();
@@ -1548,7 +1726,7 @@ describe("registerBisibilityTools", () => {
     };
     client.getCloudImportCompatibility.mockResolvedValueOnce(compatibility);
 
-    const result = await callTool("bisibility_get_cloud_import_compatibility");
+    const result = await callTool("get_cloud_import_compatibility");
 
     expect(result.structuredContent).toEqual(compatibility);
     expect(client.getCloudImportCompatibility).toHaveBeenCalledWith();
@@ -1557,8 +1735,8 @@ describe("registerBisibilityTools", () => {
   it("requires a keyword count within bounds for cost estimates", async () => {
     const { callTool, client } = createToolHarness();
 
-    const missingResult = await callTool("bisibility_get_cost_estimate", {});
-    const boundsResult = await callTool("bisibility_get_cost_estimate", { keywords: 100001 });
+    const missingResult = await callTool("get_cost_estimate", {});
+    const boundsResult = await callTool("get_cost_estimate", { keywords: 100001 });
 
     expect(missingResult.isError).toBe(true);
     expect(boundsResult.isError).toBe(true);
@@ -1569,14 +1747,14 @@ describe("registerBisibilityTools", () => {
     const { callTool, client } = createToolHarness();
     client.bulkUpdateKeywords.mockResolvedValue({ operation: "add_tags", results: [] });
 
-    await callTool("bisibility_bulk_update_keywords", {
+    await callTool("bulk_update_keywords", {
       idempotency_key: "idem_bulk",
-      keyword_ids: ["kw_1", "kw_2"],
+      keyword_ids: [publicId("kw"), publicId("kw", "b")],
       operation: "add_tags",
       tags: ["seo"],
     });
-    await callTool("bisibility_bulk_update_keywords", {
-      keyword_ids: ["kw_1"],
+    await callTool("bulk_update_keywords", {
+      keyword_ids: [publicId("kw")],
       operation: "set_frequency",
       schedule: {
         cron_expression: "0 7 * * 1",
@@ -1584,20 +1762,20 @@ describe("registerBisibilityTools", () => {
         timezone: "Europe/Warsaw",
       },
     });
-    await callTool("bisibility_bulk_update_keywords", {
-      keyword_ids: ["kw_1"],
+    await callTool("bulk_update_keywords", {
+      keyword_ids: [publicId("kw")],
       operation: "set_target_url",
       target_url: null,
     });
-    await callTool("bisibility_bulk_update_keywords", {
-      keyword_ids: ["kw_1"],
+    await callTool("bulk_update_keywords", {
+      keyword_ids: [publicId("kw")],
       operation: "delete",
     });
 
     expect(client.bulkUpdateKeywords).toHaveBeenNthCalledWith(
       1,
       {
-        keyword_ids: ["kw_1", "kw_2"],
+        keyword_ids: [publicId("kw"), publicId("kw", "b")],
         operation: "add_tags",
         tags: ["seo"],
       },
@@ -1606,7 +1784,7 @@ describe("registerBisibilityTools", () => {
     expect(client.bulkUpdateKeywords).toHaveBeenNthCalledWith(
       2,
       {
-        keyword_ids: ["kw_1"],
+        keyword_ids: [publicId("kw")],
         operation: "set_frequency",
         schedule: {
           cron_expression: "0 7 * * 1",
@@ -1619,7 +1797,7 @@ describe("registerBisibilityTools", () => {
     expect(client.bulkUpdateKeywords).toHaveBeenNthCalledWith(
       3,
       {
-        keyword_ids: ["kw_1"],
+        keyword_ids: [publicId("kw")],
         operation: "set_target_url",
         target_url: null,
       },
@@ -1628,7 +1806,7 @@ describe("registerBisibilityTools", () => {
     expect(client.bulkUpdateKeywords).toHaveBeenNthCalledWith(
       4,
       {
-        keyword_ids: ["kw_1"],
+        keyword_ids: [publicId("kw")],
         operation: "delete",
       },
       undefined,
@@ -1638,74 +1816,78 @@ describe("registerBisibilityTools", () => {
   it("manages alert rules and lists triggered alerts", async () => {
     const { callTool, client } = createToolHarness();
     client.listAlertRules.mockResolvedValueOnce(listResponse([alertRule()], "rules_next"));
-    client.createAlertRule.mockResolvedValueOnce(alertRule({ id: "rule_new" }));
+    client.createAlertRule.mockResolvedValueOnce(alertRule({ id: publicId("rule", "b") }));
     client.updateAlertRule.mockResolvedValueOnce(alertRule({ enabled: false }));
     client.deleteAlertRule.mockResolvedValueOnce({ deleted: true });
     client.listTriggeredAlerts.mockResolvedValueOnce(
       listResponse([triggeredAlert()], "alerts_next"),
     );
 
-    await callTool("bisibility_list_alert_rules", {
+    await callTool("list_alert_rules", {
       cursor: "cursor_1",
       limit: 10,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
-    await callTool("bisibility_create_alert_rule", {
+    await callTool("create_alert_rule", {
       channels: ["email", "webhook"],
       condition_type: "threshold",
       idempotency_key: "idem_alert",
       name: "Ranking drop",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
+      severity: "warning",
       target_type: "all",
       threshold_position: 10,
     });
-    await callTool("bisibility_update_alert_rule", {
+    await callTool("update_alert_rule", {
       condition_type: "threshold",
       enabled: false,
       name: "Ranking drop",
-      rule_id: "rule_1",
+      rule_id: publicId("rule"),
+      severity: "info",
       target_type: "all",
       threshold_position: 9,
     });
-    await callTool("bisibility_delete_alert_rule", {
+    await callTool("delete_alert_rule", {
       idempotency_key: "idem_delete_rule",
-      rule_id: "rule_1",
+      rule_id: publicId("rule"),
     });
-    await callTool("bisibility_list_triggered_alerts", {
+    await callTool("list_triggered_alerts", {
       limit: 5,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
 
-    expect(client.listAlertRules).toHaveBeenCalledWith("prj_1", {
+    expect(client.listAlertRules).toHaveBeenCalledWith(publicId("prj"), {
       cursor: "cursor_1",
       limit: 10,
     });
     expect(client.createAlertRule).toHaveBeenCalledWith(
-      "prj_1",
+      publicId("prj"),
       {
         channels: ["email", "webhook"],
         condition_type: "threshold",
         name: "Ranking drop",
+        severity: "warning",
         target_type: "all",
         threshold_position: 10,
       },
       { idempotencyKey: "idem_alert" },
     );
     expect(client.updateAlertRule).toHaveBeenCalledWith(
-      "rule_1",
+      publicId("rule"),
       {
         condition_type: "threshold",
         enabled: false,
         name: "Ranking drop",
+        severity: "info",
         target_type: "all",
         threshold_position: 9,
       },
       undefined,
     );
-    expect(client.deleteAlertRule).toHaveBeenCalledWith("rule_1", {
+    expect(client.deleteAlertRule).toHaveBeenCalledWith(publicId("rule"), {
       idempotencyKey: "idem_delete_rule",
     });
-    expect(client.listTriggeredAlerts).toHaveBeenCalledWith("prj_1", { limit: 5 });
+    expect(client.listTriggeredAlerts).toHaveBeenCalledWith(publicId("prj"), { limit: 5 });
   });
 
   it("mutes alerts and marks project alerts read for the whole team", async () => {
@@ -1716,28 +1898,24 @@ describe("registerBisibilityTools", () => {
     client.markProjectAlertsRead.mockResolvedValueOnce(readResult);
 
     await expect(
-      callTool("bisibility_mute_triggered_alert", {
-        alert_id: "alert_1",
+      callTool("mute_triggered_alert", {
+        alert_id: publicId("alert"),
         idempotency_key: "idem_mute",
-        project_id: "prj_1",
+        project_id: publicId("prj"),
       }),
     ).resolves.toMatchObject({ structuredContent: muteResult });
     await expect(
-      callTool("bisibility_mark_project_alerts_read", {
-        project_id: "prj_1",
+      callTool("mark_project_alerts_read", {
+        project_id: publicId("prj"),
       }),
     ).resolves.toMatchObject({ structuredContent: readResult });
 
-    expect(client.muteTriggeredAlert).toHaveBeenCalledWith("prj_1", "alert_1", {
+    expect(client.muteTriggeredAlert).toHaveBeenCalledWith(publicId("prj"), publicId("alert"), {
       idempotencyKey: "idem_mute",
     });
-    expect(client.markProjectAlertsRead).toHaveBeenCalledWith("prj_1", undefined);
-    expect(configs.get("bisibility_mute_triggered_alert")?.description).toContain(
-      "whole project team",
-    );
-    expect(configs.get("bisibility_mark_project_alerts_read")?.description).toContain(
-      "whole project team",
-    );
+    expect(client.markProjectAlertsRead).toHaveBeenCalledWith(publicId("prj"), undefined);
+    expect(configs.get("mute_triggered_alert")?.description).toContain("whole project team");
+    expect(configs.get("mark_project_alerts_read")?.description).toContain("whole project team");
   });
 
   it("lists team members and manages team invites", async () => {
@@ -1746,43 +1924,43 @@ describe("registerBisibilityTools", () => {
     client.listTeamInvites.mockResolvedValueOnce(listResponse([teamInvite()], "invites_next"));
     client.createTeamInvite.mockResolvedValueOnce({
       expires_at: "2026-01-14T00:00:00.000Z",
-      id: "inv_2",
+      id: publicId("invite", "b"),
       invite_link: "https://bisibility.test/invite/raw",
     });
-    client.revokeTeamInvite.mockResolvedValueOnce({ id: "inv_1" });
+    client.revokeTeamInvite.mockResolvedValueOnce({ id: publicId("invite") });
 
-    await callTool("bisibility_list_team_members", {
+    await callTool("list_team_members", {
       cursor: "member_cursor",
       limit: 25,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
-    await callTool("bisibility_list_team_invites", {
+    await callTool("list_team_invites", {
       limit: 5,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
-    await callTool("bisibility_create_team_invite", {
+    await callTool("create_team_invite", {
       email: "new@example.com",
       idempotency_key: "idem_invite",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       role: "viewer",
     });
-    await callTool("bisibility_revoke_team_invite", {
+    await callTool("revoke_team_invite", {
       idempotency_key: "idem_revoke_invite",
-      invite_id: "inv_1",
-      project_id: "prj_1",
+      invite_id: publicId("invite"),
+      project_id: publicId("prj"),
     });
 
-    expect(client.listTeamMembers).toHaveBeenCalledWith("prj_1", {
+    expect(client.listTeamMembers).toHaveBeenCalledWith(publicId("prj"), {
       cursor: "member_cursor",
       limit: 25,
     });
-    expect(client.listTeamInvites).toHaveBeenCalledWith("prj_1", { limit: 5 });
+    expect(client.listTeamInvites).toHaveBeenCalledWith(publicId("prj"), { limit: 5 });
     expect(client.createTeamInvite).toHaveBeenCalledWith(
-      "prj_1",
+      publicId("prj"),
       { email: "new@example.com", role: "viewer" },
       { idempotencyKey: "idem_invite" },
     );
-    expect(client.revokeTeamInvite).toHaveBeenCalledWith("prj_1", "inv_1", {
+    expect(client.revokeTeamInvite).toHaveBeenCalledWith(publicId("prj"), publicId("invite"), {
       idempotencyKey: "idem_revoke_invite",
     });
   });
@@ -1791,45 +1969,43 @@ describe("registerBisibilityTools", () => {
     const { callTool, client, configs } = createToolHarness();
     client.resendTeamInvite.mockResolvedValueOnce({
       expires_at: "2026-07-29T10:00:00.000Z",
-      id: "inv_1",
+      id: publicId("invite"),
       invite_link: "https://bisibility.test/invite/new-token",
     });
-    client.updateTeamMemberRole.mockResolvedValueOnce({ id: "mem_1", role: "viewer" });
-    client.removeTeamMember.mockResolvedValueOnce({ id: "mem_1" });
+    client.updateTeamMemberRole.mockResolvedValueOnce({ id: publicId("member"), role: "viewer" });
+    client.removeTeamMember.mockResolvedValueOnce({ id: publicId("member") });
 
-    await callTool("bisibility_resend_team_invite", {
+    await callTool("resend_team_invite", {
       idempotency_key: "resend_1",
-      invite_id: "inv_1",
-      project_id: "prj_1",
+      invite_id: publicId("invite"),
+      project_id: publicId("prj"),
     });
-    await callTool("bisibility_update_team_member_role", {
+    await callTool("update_team_member_role", {
       idempotency_key: "role_1",
-      member_id: "mem_1",
-      project_id: "prj_1",
+      member_id: publicId("member"),
+      project_id: publicId("prj"),
       role: "viewer",
     });
-    await callTool("bisibility_remove_team_member", {
+    await callTool("remove_team_member", {
       idempotency_key: "remove_1",
-      member_id: "mem_1",
-      project_id: "prj_1",
+      member_id: publicId("member"),
+      project_id: publicId("prj"),
     });
 
-    expect(client.resendTeamInvite).toHaveBeenCalledWith("prj_1", "inv_1", {
+    expect(client.resendTeamInvite).toHaveBeenCalledWith(publicId("prj"), publicId("invite"), {
       idempotencyKey: "resend_1",
     });
     expect(client.updateTeamMemberRole).toHaveBeenCalledWith(
-      "prj_1",
-      "mem_1",
+      publicId("prj"),
+      publicId("member"),
       { role: "viewer" },
       { idempotencyKey: "role_1" },
     );
-    expect(client.removeTeamMember).toHaveBeenCalledWith("prj_1", "mem_1", {
+    expect(client.removeTeamMember).toHaveBeenCalledWith(publicId("prj"), publicId("member"), {
       idempotencyKey: "remove_1",
     });
-    expect(configs.get("bisibility_remove_team_member")?.description).toContain(
-      "Confirm the user's intent",
-    );
-    expect(configs.get("bisibility_update_team_member_role")?.description).toContain(
+    expect(configs.get("remove_team_member")?.description).toContain("Confirm the user's intent");
+    expect(configs.get("update_team_member_role")?.description).toContain(
       "Ownership transfer remains UI-only",
     );
   });
@@ -1846,68 +2022,68 @@ describe("registerBisibilityTools", () => {
     client.setPrimaryProvider.mockResolvedValueOnce(providerConnection({ is_primary: false }));
     client.disconnectProvider.mockResolvedValueOnce({ ok: true });
 
-    await callTool("bisibility_list_providers", {
+    await callTool("list_providers", {
       cursor: "provider_cursor",
       limit: 20,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
-    await callTool("bisibility_connect_provider", {
+    await callTool("connect_provider", {
       cost_per_check: 0.01,
       credentials: { api_key: "secret" },
       idempotency_key: "idem_provider",
       primary: true,
       priority: 0,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       provider_id: "serpapi",
     });
-    await callTool("bisibility_connect_provider", {
-      project_id: "prj_1",
+    await callTool("connect_provider", {
+      project_id: publicId("prj"),
       provider_id: "serpapi",
     });
-    await callTool("bisibility_test_provider_connection", {
+    await callTool("test_provider_connection", {
       credentials: { api_key: "secret" },
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       provider_id: "serpapi",
     });
-    await callTool("bisibility_test_provider_connection", {
-      project_id: "prj_1",
+    await callTool("test_provider_connection", {
+      project_id: publicId("prj"),
       provider_id: "serpapi",
     });
-    await callTool("bisibility_update_provider_settings", {
+    await callTool("update_provider_settings", {
       enabled: false,
       priority: 25,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       provider_id: "serpapi",
     });
-    await callTool("bisibility_set_provider_enabled", {
+    await callTool("set_provider_enabled", {
       enabled: false,
       idempotency_key: "idem_enabled",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       provider_id: "serpapi",
     });
-    await callTool("bisibility_set_provider_priority", {
+    await callTool("set_provider_priority", {
       priority: 20,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       provider_id: "serpapi",
     });
-    await callTool("bisibility_set_primary_provider", {
+    await callTool("set_primary_provider", {
       primary: false,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       provider_id: "serpapi",
     });
-    await callTool("bisibility_disconnect_provider", {
+    await callTool("disconnect_provider", {
       idempotency_key: "idem_disconnect",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       provider_id: "serpapi",
     });
 
-    expect(client.listProviders).toHaveBeenCalledWith("prj_1", {
+    expect(client.listProviders).toHaveBeenCalledWith(publicId("prj"), {
       cursor: "provider_cursor",
       limit: 20,
     });
     expect(client.connectProvider).toHaveBeenNthCalledWith(
       1,
-      "prj_1",
+      publicId("prj"),
       "serpapi",
       {
         cost_per_check: 0.01,
@@ -1919,27 +2095,42 @@ describe("registerBisibilityTools", () => {
     );
     expect(client.connectProvider).toHaveBeenNthCalledWith(
       2,
-      "prj_1",
+      publicId("prj"),
       "serpapi",
       undefined,
       undefined,
     );
-    expect(client.testProviderConnection).toHaveBeenNthCalledWith(1, "prj_1", "serpapi", {
+    expect(client.testProviderConnection).toHaveBeenNthCalledWith(1, publicId("prj"), "serpapi", {
       credentials: { api_key: "secret" },
     });
-    expect(client.testProviderConnection).toHaveBeenNthCalledWith(2, "prj_1", "serpapi", undefined);
+    expect(client.testProviderConnection).toHaveBeenNthCalledWith(
+      2,
+      publicId("prj"),
+      "serpapi",
+      undefined,
+    );
     expect(client.updateProviderSettings).toHaveBeenCalledWith(
-      "prj_1",
+      publicId("prj"),
       "serpapi",
       { enabled: false, priority: 25 },
       undefined,
     );
-    expect(client.setProviderEnabled).toHaveBeenCalledWith("prj_1", "serpapi", false, {
+    expect(client.setProviderEnabled).toHaveBeenCalledWith(publicId("prj"), "serpapi", false, {
       idempotencyKey: "idem_enabled",
     });
-    expect(client.setProviderPriority).toHaveBeenCalledWith("prj_1", "serpapi", 20, undefined);
-    expect(client.setPrimaryProvider).toHaveBeenCalledWith("prj_1", "serpapi", false, undefined);
-    expect(client.disconnectProvider).toHaveBeenCalledWith("prj_1", "serpapi", {
+    expect(client.setProviderPriority).toHaveBeenCalledWith(
+      publicId("prj"),
+      "serpapi",
+      20,
+      undefined,
+    );
+    expect(client.setPrimaryProvider).toHaveBeenCalledWith(
+      publicId("prj"),
+      "serpapi",
+      false,
+      undefined,
+    );
+    expect(client.disconnectProvider).toHaveBeenCalledWith(publicId("prj"), "serpapi", {
       idempotencyKey: "idem_disconnect",
     });
   });
@@ -1951,23 +2142,23 @@ describe("registerBisibilityTools", () => {
     );
     client.testProviderConnection.mockResolvedValueOnce({ message: "Connected", ok: true });
 
-    await callTool("bisibility_connect_provider", {
+    await callTool("connect_provider", {
       credentials: {
         api_key: "plausible-key",
         endpoint: "https://plausible.example.com/api",
         login: "example.com",
       },
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       provider_id: "plausible",
     });
-    await callTool("bisibility_test_provider_connection", {
+    await callTool("test_provider_connection", {
       credentials: { endpoint: "https://plausible.example.com/api" },
-      project_id: "prj_1",
+      project_id: publicId("prj"),
       provider_id: "plausible",
     });
 
     expect(client.connectProvider).toHaveBeenCalledWith(
-      "prj_1",
+      publicId("prj"),
       "plausible",
       {
         credentials: {
@@ -1978,7 +2169,7 @@ describe("registerBisibilityTools", () => {
       },
       undefined,
     );
-    expect(client.testProviderConnection).toHaveBeenCalledWith("prj_1", "plausible", {
+    expect(client.testProviderConnection).toHaveBeenCalledWith(publicId("prj"), "plausible", {
       credentials: { endpoint: "https://plausible.example.com/api" },
     });
   });
@@ -1987,14 +2178,14 @@ describe("registerBisibilityTools", () => {
     const { callTool, client } = createToolHarness();
     client.connectProvider.mockResolvedValueOnce(providerConnection());
 
-    const result = await callTool("bisibility_connect_provider", {
-      project_id: "prj_1",
+    const result = await callTool("connect_provider", {
+      project_id: publicId("prj"),
       provider_id: "future_provider",
     });
 
     expect(result.isError).toBeUndefined();
     expect(client.connectProvider).toHaveBeenCalledWith(
-      "prj_1",
+      publicId("prj"),
       "future_provider",
       undefined,
       undefined,
@@ -2004,88 +2195,92 @@ describe("registerBisibilityTools", () => {
   it("manages saved views and competitors", async () => {
     const { callTool, client } = createToolHarness();
     client.listSavedViews.mockResolvedValueOnce(listResponse([savedView()], "views_next"));
-    client.createSavedView.mockResolvedValueOnce(savedView({ id: "view_new" }));
+    client.createSavedView.mockResolvedValueOnce(savedView({ id: publicId("view", "b") }));
     client.deleteSavedView.mockResolvedValueOnce({ deleted: true });
     client.listCompetitors.mockResolvedValueOnce(competitorListResponse());
     client.addCompetitor.mockResolvedValueOnce(competitor({ label: null }));
     client.removeCompetitor.mockResolvedValueOnce({ removed: true });
 
-    await callTool("bisibility_list_saved_views", {
+    await callTool("list_saved_views", {
       cursor: "view_cursor",
       limit: 2,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
+      surface: "competitors",
     });
-    await callTool("bisibility_create_saved_view", {
-      config: savedViewConfig,
+    await callTool("create_saved_view", {
+      config: competitorSavedViewConfig,
       idempotency_key: "idem_view",
-      name: "Product keywords",
-      project_id: "prj_1",
+      name: "Competitor market",
+      project_id: publicId("prj"),
+      surface: "competitors",
     });
-    await callTool("bisibility_delete_saved_view", {
+    await callTool("delete_saved_view", {
       idempotency_key: "idem_delete_view",
-      project_id: "prj_1",
-      view_id: "view_1",
+      project_id: publicId("prj"),
+      view_id: publicId("view"),
     });
-    await callTool("bisibility_list_competitors", {
+    await callTool("list_competitors", {
       cursor: "competitor_cursor",
       limit: 25,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
-    await callTool("bisibility_add_competitor", {
-      domain: "https://rankzly.io",
+    await callTool("add_competitor", {
+      domain: "https://competitor.example.com",
       idempotency_key: "idem_competitor",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
-    await callTool("bisibility_remove_competitor", {
-      competitor_id: "comp_1",
+    await callTool("remove_competitor", {
+      competitor_id: publicId("comp"),
       idempotency_key: "idem_remove_competitor",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
 
-    expect(client.listSavedViews).toHaveBeenCalledWith("prj_1", {
+    expect(client.listSavedViews).toHaveBeenCalledWith(publicId("prj"), {
       cursor: "view_cursor",
       limit: 2,
+      surface: "competitors",
     });
     expect(client.createSavedView).toHaveBeenCalledWith(
-      "prj_1",
-      { config: savedViewConfig, name: "Product keywords" },
+      publicId("prj"),
+      { config: competitorSavedViewConfig, name: "Competitor market", surface: "competitors" },
       { idempotencyKey: "idem_view" },
     );
-    expect(client.deleteSavedView).toHaveBeenCalledWith("prj_1", "view_1", {
+    expect(client.deleteSavedView).toHaveBeenCalledWith(publicId("prj"), publicId("view"), {
       idempotencyKey: "idem_delete_view",
     });
-    expect(client.listCompetitors).toHaveBeenCalledWith("prj_1", {
+    expect(client.listCompetitors).toHaveBeenCalledWith(publicId("prj"), {
       cursor: "competitor_cursor",
       limit: 25,
     });
     expect(client.addCompetitor).toHaveBeenCalledWith(
-      "prj_1",
-      { domain: "https://rankzly.io" },
+      publicId("prj"),
+      { domain: "https://competitor.example.com" },
       { idempotencyKey: "idem_competitor" },
     );
-    expect(client.removeCompetitor).toHaveBeenCalledWith("prj_1", "comp_1", {
+    expect(client.removeCompetitor).toHaveBeenCalledWith(publicId("prj"), publicId("comp"), {
       idempotencyKey: "idem_remove_competitor",
     });
   });
 
-  it("accepts any provider-supported saved view country and serp filter values", async () => {
+  it("creates a current keyword saved view without legacy market filters", async () => {
     const { callTool, client } = createToolHarness();
     client.createSavedView.mockResolvedValueOnce(savedView({ name: "France AI" }));
 
     const config = {
-      filters: { ...savedViewConfig.filters, country: "fr", serp: ["ai", "shopping"] },
+      ...savedViewConfig,
+      filters: { ...savedViewConfig.filters, intents: ["commercial"], serp: ["ai", "shopping"] },
       search: "",
     };
 
-    const result = await callTool("bisibility_create_saved_view", {
+    const result = await callTool("create_saved_view", {
       config,
       name: "France AI",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
 
     expect(result.isError).toBeUndefined();
     expect(client.createSavedView).toHaveBeenCalledWith(
-      "prj_1",
+      publicId("prj"),
       { config, name: "France AI" },
       undefined,
     );
@@ -2098,17 +2293,17 @@ describe("registerBisibilityTools", () => {
       notificationPreferences({ alert_email: false, alert_slack: true }),
     );
 
-    await callTool("bisibility_get_notification_preferences", { project_id: "prj_1" });
-    await callTool("bisibility_update_notification_preferences", {
+    await callTool("get_notification_preferences", { project_id: publicId("prj") });
+    await callTool("update_notification_preferences", {
       alert_email: false,
       alert_slack: true,
       idempotency_key: "idem_prefs",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
 
-    expect(client.getNotificationPreferences).toHaveBeenCalledWith("prj_1");
+    expect(client.getNotificationPreferences).toHaveBeenCalledWith(publicId("prj"));
     expect(client.updateNotificationPreferences).toHaveBeenCalledWith(
-      "prj_1",
+      publicId("prj"),
       { alert_email: false, alert_slack: true },
       { idempotencyKey: "idem_prefs" },
     );
@@ -2121,39 +2316,39 @@ describe("registerBisibilityTools", () => {
     );
     client.mintMigrationToken.mockResolvedValue(issuedMigrationToken());
     client.revokeMigrationToken.mockResolvedValueOnce({
-      id: "tok_1",
+      id: publicId("mtok"),
       revoked_at: "2026-01-08T00:30:00.000Z",
     });
 
-    await callTool("bisibility_list_migration_tokens", {
+    await callTool("list_migration_tokens", {
       limit: 1,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
-    await callTool("bisibility_mint_migration_token", {
+    await callTool("mint_migration_token", {
       idempotency_key: "idem_mint",
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
-    await callTool("bisibility_mint_migration_token", {
-      project_id: "prj_1",
+    await callTool("mint_migration_token", {
+      project_id: publicId("prj"),
       scope: "keywords",
     });
-    await callTool("bisibility_revoke_migration_token", {
+    await callTool("revoke_migration_token", {
       idempotency_key: "idem_revoke_token",
-      project_id: "prj_1",
-      token_id: "tok_1",
+      project_id: publicId("prj"),
+      token_id: publicId("mtok"),
     });
 
-    expect(client.listMigrationTokens).toHaveBeenCalledWith("prj_1", { limit: 1 });
-    expect(client.mintMigrationToken).toHaveBeenNthCalledWith(1, "prj_1", undefined, {
+    expect(client.listMigrationTokens).toHaveBeenCalledWith(publicId("prj"), { limit: 1 });
+    expect(client.mintMigrationToken).toHaveBeenNthCalledWith(1, publicId("prj"), undefined, {
       idempotencyKey: "idem_mint",
     });
     expect(client.mintMigrationToken).toHaveBeenNthCalledWith(
       2,
-      "prj_1",
+      publicId("prj"),
       { scope: "keywords" },
       undefined,
     );
-    expect(client.revokeMigrationToken).toHaveBeenCalledWith("prj_1", "tok_1", {
+    expect(client.revokeMigrationToken).toHaveBeenCalledWith(publicId("prj"), publicId("mtok"), {
       idempotencyKey: "idem_revoke_token",
     });
   });
@@ -2161,9 +2356,9 @@ describe("registerBisibilityTools", () => {
   it("returns tool errors for validation failures without calling the SDK", async () => {
     const { callTool, client } = createToolHarness();
 
-    const result = await callTool("bisibility_list_keywords", {
+    const result = await callTool("list_keywords", {
       limit: 500,
-      project_id: "prj_1",
+      project_id: publicId("prj"),
     });
 
     expect(result.isError).toBe(true);
@@ -2178,8 +2373,8 @@ describe("registerBisibilityTools", () => {
   it("requires explicit target_url when setting target URLs in bulk", async () => {
     const { callTool, client } = createToolHarness();
 
-    const result = await callTool("bisibility_bulk_update_keywords", {
-      keyword_ids: ["kw_1"],
+    const result = await callTool("bulk_update_keywords", {
+      keyword_ids: [publicId("kw")],
       operation: "set_target_url",
     });
 
@@ -2191,12 +2386,12 @@ describe("registerBisibilityTools", () => {
   it("requires provider settings and notification updates to include a value", async () => {
     const { callTool, client } = createToolHarness();
 
-    const providerResult = await callTool("bisibility_update_provider_settings", {
-      project_id: "prj_1",
+    const providerResult = await callTool("update_provider_settings", {
+      project_id: publicId("prj"),
       provider_id: "serpapi",
     });
-    const notificationResult = await callTool("bisibility_update_notification_preferences", {
-      project_id: "prj_1",
+    const notificationResult = await callTool("update_notification_preferences", {
+      project_id: publicId("prj"),
     });
 
     expect(providerResult.isError).toBe(true);
@@ -2220,7 +2415,7 @@ describe("registerBisibilityTools", () => {
     });
     client.listProjects.mockRejectedValueOnce(error);
 
-    const result = await callTool("bisibility_list_projects");
+    const result = await callTool("list_projects");
 
     expect(result.isError).toBe(true);
     expect(parsedContent(result)).toEqual({
