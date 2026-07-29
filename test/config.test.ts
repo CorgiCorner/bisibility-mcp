@@ -35,8 +35,8 @@ describe("Bisibility MCP config", () => {
   });
 
   it("reads API key and defaults the base URL", () => {
-    expect(readBisibilityMcpConfig({ BISIBILITY_API_KEY: " bsk_live_1 " })).toEqual({
-      apiKey: "bsk_live_1",
+    expect(readBisibilityMcpConfig({ BISIBILITY_API_KEY: " bsb_key_live_1 " })).toEqual({
+      apiKey: "bsb_key_live_1",
       baseUrl: DEFAULT_BISIBILITY_BASE_URL,
     });
   });
@@ -44,11 +44,11 @@ describe("Bisibility MCP config", () => {
   it("uses an explicit base URL", () => {
     expect(
       readBisibilityMcpConfig({
-        BISIBILITY_API_KEY: "bsk_live_1",
+        BISIBILITY_API_KEY: "bsb_key_live_1",
         BISIBILITY_BASE_URL: " https://rank.example/api/v1/ ",
       }),
     ).toEqual({
-      apiKey: "bsk_live_1",
+      apiKey: "bsb_key_live_1",
       baseUrl: "https://rank.example/api/v1/",
     });
   });
@@ -56,21 +56,21 @@ describe("Bisibility MCP config", () => {
   it("passes the optional PAT project selector to the SDK", () => {
     expect(
       readBisibilityMcpConfig({
-        BISIBILITY_API_KEY: "bsp_live_1",
+        BISIBILITY_API_KEY: "bsb_pat_live_1",
         BISIBILITY_PROJECT_ID: ` ${projectId} `,
       }),
     ).toEqual({
-      apiKey: "bsp_live_1",
+      apiKey: "bsb_pat_live_1",
       baseUrl: DEFAULT_BISIBILITY_BASE_URL,
       projectId,
     });
 
     createBisibilityClientFromEnv({
-      BISIBILITY_API_KEY: "bsp_live_1",
+      BISIBILITY_API_KEY: "bsb_pat_live_1",
       BISIBILITY_PROJECT_ID: projectId,
     });
     expect(bisibilityClientMock).toHaveBeenLastCalledWith({
-      apiKey: "bsp_live_1",
+      apiKey: "bsb_pat_live_1",
       baseUrl: DEFAULT_BISIBILITY_BASE_URL,
       projectId,
     });
@@ -82,24 +82,34 @@ describe("Bisibility MCP config", () => {
     );
   });
 
+  it.each(["bsp_live_old", "bsk_live_old", "unknown"])(
+    "rejects a legacy or unsupported API credential: %s",
+    (apiKey) => {
+      expect(() => readBisibilityMcpConfig({ BISIBILITY_API_KEY: apiKey })).toThrow(
+        "Legacy bsp_ and bsk_ credentials are not accepted.",
+      );
+      expect(bisibilityClientMock).not.toHaveBeenCalled();
+    },
+  );
+
   it("rejects an empty base URL", () => {
     expect(() =>
       readBisibilityMcpConfig({
-        BISIBILITY_API_KEY: "bsk_live_1",
+        BISIBILITY_API_KEY: "bsb_key_live_1",
         BISIBILITY_BASE_URL: " ",
       }),
     ).toThrow("BISIBILITY_BASE_URL cannot be empty.");
   });
 
   it.each(["prj_1", "kw_a000000000000000000000000", "prj_A000000000000000000000000"])(
-    "rejects a non-v2 project selector: %s",
+    "rejects a non-v3 project selector: %s",
     (value) => {
       expect(() =>
         readBisibilityMcpConfig({
-          BISIBILITY_API_KEY: "bsp_live_1",
+          BISIBILITY_API_KEY: "bsb_pat_live_1",
           BISIBILITY_PROJECT_ID: value,
         }),
-      ).toThrow("BISIBILITY_PROJECT_ID must be a prj_ public ID v2.");
+      ).toThrow("BISIBILITY_PROJECT_ID must be a prj_ public ID v3.");
     },
   );
 
@@ -107,14 +117,14 @@ describe("Bisibility MCP config", () => {
     const fetchImpl = vi.fn();
     createBisibilityClientFromEnv(
       {
-        BISIBILITY_API_KEY: "bsk_live_1",
+        BISIBILITY_API_KEY: "bsb_key_live_1",
         BISIBILITY_BASE_URL: "https://rank.example/api/v1",
       },
       { fetch: fetchImpl },
     );
 
     expect(bisibilityClientMock).toHaveBeenCalledWith({
-      apiKey: "bsk_live_1",
+      apiKey: "bsb_key_live_1",
       baseUrl: "https://rank.example/api/v1",
       fetch: fetchImpl,
     });

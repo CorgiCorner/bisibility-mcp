@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.5.0 - 2026-07-29
+
+- Breaking: require public ID v3 prefixes and `bsb_key_*` or `bsb_pat_live_` credentials.
+  Public ID v2 values and legacy `bsk_*` or `bsp_*` credentials are no longer accepted.
+
 ## 0.4.0 - 2026-07-29
 
 - Breaking: use the same 84 unprefixed `snake_case` tool names as `/api/mcp`; clients must remove

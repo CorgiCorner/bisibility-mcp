@@ -47,6 +47,21 @@ export interface BisibilityMcpConfig {
   projectId?: PublicIdForPrefix<"prj">;
 }
 
+const API_CREDENTIAL_PREFIXES = ["bsb_key_live_", "bsb_key_test_", "bsb_pat_live_"] as const;
+
+function readApiCredential(value: string | undefined) {
+  const credential = cleanEnvValue(value);
+  if (!credential) {
+    throw new Error("BISIBILITY_API_KEY is required to run the Bisibility MCP server.");
+  }
+  if (!API_CREDENTIAL_PREFIXES.some((prefix) => credential.startsWith(prefix))) {
+    throw new Error(
+      "BISIBILITY_API_KEY must use bsb_key_live_, bsb_key_test_, or bsb_pat_live_. Legacy bsp_ and bsk_ credentials are not accepted.",
+    );
+  }
+  return credential;
+}
+
 function cleanEnvValue(value: string | undefined) {
   const cleaned = value?.trim();
   if (!cleaned) {
@@ -93,10 +108,7 @@ export function readBisibilityMcpToolConfig(
 }
 
 export function readBisibilityMcpConfig(env: BisibilityMcpEnv = process.env): BisibilityMcpConfig {
-  const apiKey = cleanEnvValue(env.BISIBILITY_API_KEY);
-  if (!apiKey) {
-    throw new Error("BISIBILITY_API_KEY is required to run the Bisibility MCP server.");
-  }
+  const apiKey = readApiCredential(env.BISIBILITY_API_KEY);
 
   const baseUrl = cleanEnvValue(env.BISIBILITY_BASE_URL ?? DEFAULT_BISIBILITY_BASE_URL);
   if (!baseUrl) {
@@ -107,7 +119,7 @@ export function readBisibilityMcpConfig(env: BisibilityMcpEnv = process.env): Bi
   if (projectId) {
     const parsedProjectId = projectIdInput.safeParse(projectId);
     if (!parsedProjectId.success) {
-      throw new Error("BISIBILITY_PROJECT_ID must be a prj_ public ID v2.");
+      throw new Error("BISIBILITY_PROJECT_ID must be a prj_ public ID v3.");
     }
     return { apiKey, baseUrl, projectId: parsedProjectId.data };
   }

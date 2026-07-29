@@ -317,6 +317,7 @@ describe("registerBisibilityTools", () => {
   it("uses the same unprefixed snake_case names as the built-in HTTP server", () => {
     const { tools } = createToolHarness();
 
+    expect([...tools]).toHaveLength(84);
     expect([...tools.keys()].every((name) => /^[a-z][a-z0-9_]*$/.test(name))).toBe(true);
     expect([...tools.keys()].some((name) => name.startsWith("bisibility_"))).toBe(false);
   });
@@ -452,7 +453,7 @@ describe("registerBisibilityTools", () => {
       id: publicId("pat"),
       last_used_at: null,
       name: "Agent",
-      prefix: "bsp_live_example",
+      prefix: "bsb_pat_live_example",
       revoked_at: null,
       scope: "admin",
     };
@@ -460,7 +461,7 @@ describe("registerBisibilityTools", () => {
       created_at: "2026-07-12T00:00:00.000Z",
       description: null,
       enabled: true,
-      id: publicId("webhook"),
+      id: publicId("we"),
       last_delivery_at: null,
       updated_at: "2026-07-12T00:00:00.000Z",
       url: "https://example.com/hook",
@@ -474,7 +475,7 @@ describe("registerBisibilityTools", () => {
     client.createMyToken.mockResolvedValueOnce({
       ...token,
       masked_value: "masked",
-      token: "bsp_raw",
+      token: "bsb_pat_live_raw",
     });
     client.revokeMyToken.mockResolvedValueOnce({
       ...token,
@@ -513,11 +514,11 @@ describe("registerBisibilityTools", () => {
     await callTool("update_webhook", {
       enabled: false,
       project_id: publicId("prj"),
-      webhook_id: publicId("webhook"),
+      webhook_id: publicId("we"),
     });
     await callTool("delete_webhook", {
       project_id: publicId("prj"),
-      webhook_id: publicId("webhook"),
+      webhook_id: publicId("we"),
     });
 
     expect(client.updateMe).toHaveBeenCalledWith({ name: "Renamed" }, undefined);
@@ -541,7 +542,7 @@ describe("registerBisibilityTools", () => {
       { hmac_secret: "1234567890123456", url: webhook.url },
       undefined,
     );
-    expect(parsedContent(created)).toMatchObject({ token: "bsp_raw" });
+    expect(parsedContent(created)).toMatchObject({ token: "bsb_pat_live_raw" });
   });
 
   it("maps optional project_id to the SDK request header on implicit tools", async () => {
@@ -1722,7 +1723,7 @@ describe("registerBisibilityTools", () => {
     const compatibility = {
       app_version: "1.42.0",
       latest_migration: "2026_07_01_add_cloud_import",
-      schema_versions_supported: [1, 2, 3],
+      schema_versions_supported: [5],
     };
     client.getCloudImportCompatibility.mockResolvedValueOnce(compatibility);
 
@@ -1816,7 +1817,7 @@ describe("registerBisibilityTools", () => {
   it("manages alert rules and lists triggered alerts", async () => {
     const { callTool, client } = createToolHarness();
     client.listAlertRules.mockResolvedValueOnce(listResponse([alertRule()], "rules_next"));
-    client.createAlertRule.mockResolvedValueOnce(alertRule({ id: publicId("rule", "b") }));
+    client.createAlertRule.mockResolvedValueOnce(alertRule({ id: publicId("alr", "b") }));
     client.updateAlertRule.mockResolvedValueOnce(alertRule({ enabled: false }));
     client.deleteAlertRule.mockResolvedValueOnce({ deleted: true });
     client.listTriggeredAlerts.mockResolvedValueOnce(
@@ -1842,14 +1843,14 @@ describe("registerBisibilityTools", () => {
       condition_type: "threshold",
       enabled: false,
       name: "Ranking drop",
-      rule_id: publicId("rule"),
+      rule_id: publicId("alr"),
       severity: "info",
       target_type: "all",
       threshold_position: 9,
     });
     await callTool("delete_alert_rule", {
       idempotency_key: "idem_delete_rule",
-      rule_id: publicId("rule"),
+      rule_id: publicId("alr"),
     });
     await callTool("list_triggered_alerts", {
       limit: 5,
@@ -1873,7 +1874,7 @@ describe("registerBisibilityTools", () => {
       { idempotencyKey: "idem_alert" },
     );
     expect(client.updateAlertRule).toHaveBeenCalledWith(
-      publicId("rule"),
+      publicId("alr"),
       {
         condition_type: "threshold",
         enabled: false,
@@ -1884,7 +1885,7 @@ describe("registerBisibilityTools", () => {
       },
       undefined,
     );
-    expect(client.deleteAlertRule).toHaveBeenCalledWith(publicId("rule"), {
+    expect(client.deleteAlertRule).toHaveBeenCalledWith(publicId("alr"), {
       idempotencyKey: "idem_delete_rule",
     });
     expect(client.listTriggeredAlerts).toHaveBeenCalledWith(publicId("prj"), { limit: 5 });
@@ -1899,7 +1900,7 @@ describe("registerBisibilityTools", () => {
 
     await expect(
       callTool("mute_triggered_alert", {
-        alert_id: publicId("alert"),
+        alert_id: publicId("al"),
         idempotency_key: "idem_mute",
         project_id: publicId("prj"),
       }),
@@ -1910,7 +1911,7 @@ describe("registerBisibilityTools", () => {
       }),
     ).resolves.toMatchObject({ structuredContent: readResult });
 
-    expect(client.muteTriggeredAlert).toHaveBeenCalledWith(publicId("prj"), publicId("alert"), {
+    expect(client.muteTriggeredAlert).toHaveBeenCalledWith(publicId("prj"), publicId("al"), {
       idempotencyKey: "idem_mute",
     });
     expect(client.markProjectAlertsRead).toHaveBeenCalledWith(publicId("prj"), undefined);
@@ -1924,10 +1925,10 @@ describe("registerBisibilityTools", () => {
     client.listTeamInvites.mockResolvedValueOnce(listResponse([teamInvite()], "invites_next"));
     client.createTeamInvite.mockResolvedValueOnce({
       expires_at: "2026-01-14T00:00:00.000Z",
-      id: publicId("invite", "b"),
+      id: publicId("inv", "b"),
       invite_link: "https://bisibility.test/invite/raw",
     });
-    client.revokeTeamInvite.mockResolvedValueOnce({ id: publicId("invite") });
+    client.revokeTeamInvite.mockResolvedValueOnce({ id: publicId("inv") });
 
     await callTool("list_team_members", {
       cursor: "member_cursor",
@@ -1946,7 +1947,7 @@ describe("registerBisibilityTools", () => {
     });
     await callTool("revoke_team_invite", {
       idempotency_key: "idem_revoke_invite",
-      invite_id: publicId("invite"),
+      invite_id: publicId("inv"),
       project_id: publicId("prj"),
     });
 
@@ -1960,7 +1961,7 @@ describe("registerBisibilityTools", () => {
       { email: "new@example.com", role: "viewer" },
       { idempotencyKey: "idem_invite" },
     );
-    expect(client.revokeTeamInvite).toHaveBeenCalledWith(publicId("prj"), publicId("invite"), {
+    expect(client.revokeTeamInvite).toHaveBeenCalledWith(publicId("prj"), publicId("inv"), {
       idempotencyKey: "idem_revoke_invite",
     });
   });
@@ -1969,39 +1970,39 @@ describe("registerBisibilityTools", () => {
     const { callTool, client, configs } = createToolHarness();
     client.resendTeamInvite.mockResolvedValueOnce({
       expires_at: "2026-07-29T10:00:00.000Z",
-      id: publicId("invite"),
+      id: publicId("inv"),
       invite_link: "https://bisibility.test/invite/new-token",
     });
-    client.updateTeamMemberRole.mockResolvedValueOnce({ id: publicId("member"), role: "viewer" });
-    client.removeTeamMember.mockResolvedValueOnce({ id: publicId("member") });
+    client.updateTeamMemberRole.mockResolvedValueOnce({ id: publicId("mbr"), role: "viewer" });
+    client.removeTeamMember.mockResolvedValueOnce({ id: publicId("mbr") });
 
     await callTool("resend_team_invite", {
       idempotency_key: "resend_1",
-      invite_id: publicId("invite"),
+      invite_id: publicId("inv"),
       project_id: publicId("prj"),
     });
     await callTool("update_team_member_role", {
       idempotency_key: "role_1",
-      member_id: publicId("member"),
+      member_id: publicId("mbr"),
       project_id: publicId("prj"),
       role: "viewer",
     });
     await callTool("remove_team_member", {
       idempotency_key: "remove_1",
-      member_id: publicId("member"),
+      member_id: publicId("mbr"),
       project_id: publicId("prj"),
     });
 
-    expect(client.resendTeamInvite).toHaveBeenCalledWith(publicId("prj"), publicId("invite"), {
+    expect(client.resendTeamInvite).toHaveBeenCalledWith(publicId("prj"), publicId("inv"), {
       idempotencyKey: "resend_1",
     });
     expect(client.updateTeamMemberRole).toHaveBeenCalledWith(
       publicId("prj"),
-      publicId("member"),
+      publicId("mbr"),
       { role: "viewer" },
       { idempotencyKey: "role_1" },
     );
-    expect(client.removeTeamMember).toHaveBeenCalledWith(publicId("prj"), publicId("member"), {
+    expect(client.removeTeamMember).toHaveBeenCalledWith(publicId("prj"), publicId("mbr"), {
       idempotencyKey: "remove_1",
     });
     expect(configs.get("remove_team_member")?.description).toContain("Confirm the user's intent");
@@ -2195,7 +2196,7 @@ describe("registerBisibilityTools", () => {
   it("manages saved views and competitors", async () => {
     const { callTool, client } = createToolHarness();
     client.listSavedViews.mockResolvedValueOnce(listResponse([savedView()], "views_next"));
-    client.createSavedView.mockResolvedValueOnce(savedView({ id: publicId("view", "b") }));
+    client.createSavedView.mockResolvedValueOnce(savedView({ id: publicId("viw", "b") }));
     client.deleteSavedView.mockResolvedValueOnce({ deleted: true });
     client.listCompetitors.mockResolvedValueOnce(competitorListResponse());
     client.addCompetitor.mockResolvedValueOnce(competitor({ label: null }));
@@ -2217,7 +2218,7 @@ describe("registerBisibilityTools", () => {
     await callTool("delete_saved_view", {
       idempotency_key: "idem_delete_view",
       project_id: publicId("prj"),
-      view_id: publicId("view"),
+      view_id: publicId("viw"),
     });
     await callTool("list_competitors", {
       cursor: "competitor_cursor",
@@ -2230,7 +2231,7 @@ describe("registerBisibilityTools", () => {
       project_id: publicId("prj"),
     });
     await callTool("remove_competitor", {
-      competitor_id: publicId("comp"),
+      competitor_id: publicId("cmp"),
       idempotency_key: "idem_remove_competitor",
       project_id: publicId("prj"),
     });
@@ -2245,7 +2246,7 @@ describe("registerBisibilityTools", () => {
       { config: competitorSavedViewConfig, name: "Competitor market", surface: "competitors" },
       { idempotencyKey: "idem_view" },
     );
-    expect(client.deleteSavedView).toHaveBeenCalledWith(publicId("prj"), publicId("view"), {
+    expect(client.deleteSavedView).toHaveBeenCalledWith(publicId("prj"), publicId("viw"), {
       idempotencyKey: "idem_delete_view",
     });
     expect(client.listCompetitors).toHaveBeenCalledWith(publicId("prj"), {
@@ -2257,7 +2258,7 @@ describe("registerBisibilityTools", () => {
       { domain: "https://competitor.example.com" },
       { idempotencyKey: "idem_competitor" },
     );
-    expect(client.removeCompetitor).toHaveBeenCalledWith(publicId("prj"), publicId("comp"), {
+    expect(client.removeCompetitor).toHaveBeenCalledWith(publicId("prj"), publicId("cmp"), {
       idempotencyKey: "idem_remove_competitor",
     });
   });
@@ -2316,7 +2317,7 @@ describe("registerBisibilityTools", () => {
     );
     client.mintMigrationToken.mockResolvedValue(issuedMigrationToken());
     client.revokeMigrationToken.mockResolvedValueOnce({
-      id: publicId("mtok"),
+      id: publicId("ferry"),
       revoked_at: "2026-01-08T00:30:00.000Z",
     });
 
@@ -2335,7 +2336,7 @@ describe("registerBisibilityTools", () => {
     await callTool("revoke_migration_token", {
       idempotency_key: "idem_revoke_token",
       project_id: publicId("prj"),
-      token_id: publicId("mtok"),
+      token_id: publicId("ferry"),
     });
 
     expect(client.listMigrationTokens).toHaveBeenCalledWith(publicId("prj"), { limit: 1 });
@@ -2348,7 +2349,7 @@ describe("registerBisibilityTools", () => {
       { scope: "keywords" },
       undefined,
     );
-    expect(client.revokeMigrationToken).toHaveBeenCalledWith(publicId("prj"), publicId("mtok"), {
+    expect(client.revokeMigrationToken).toHaveBeenCalledWith(publicId("prj"), publicId("ferry"), {
       idempotencyKey: "idem_revoke_token",
     });
   });

@@ -1,29 +1,29 @@
 import * as z from "zod/v4";
 
 export const publicIdPrefixes = [
-  "alert",
+  "al",
+  "alr",
   "audit",
   "check",
-  "comp",
+  "cmp",
   "conn",
-  "hook",
-  "invite",
-  "job",
+  "dwh",
+  "ferry",
+  "imp",
+  "inv",
   "key",
   "kw",
-  "member",
-  "mtok",
-  "notif",
+  "mbr",
+  "ntf",
   "pat",
   "prj",
-  "rule",
-  "ses",
+  "sid",
   "sig",
-  "skw",
+  "svkw",
   "tag",
   "usr",
-  "view",
-  "webhook",
+  "viw",
+  "we",
 ] as const;
 
 export type PublicIdPrefix = (typeof publicIdPrefixes)[number];
@@ -54,7 +54,7 @@ export function assertPublicId<Prefix extends PublicIdPrefix>(
   prefix: Prefix,
 ): asserts value is PublicIdForPrefix<Prefix> {
   if (!matchesPublicId(value, prefix)) {
-    throw new Error(`Expected a ${prefix}_ public ID v2.`);
+    throw new Error(`Expected a ${prefix}_ public ID v3.`);
   }
 }
 
@@ -71,31 +71,31 @@ export const publicIdInput = <Prefix extends PublicIdPrefix>(prefix: Prefix) =>
     .string()
     .trim()
     .regex(publicIdPattern(prefix), {
-      message: `Expected a ${prefix}_ public ID v2.`,
+      message: `Expected a ${prefix}_ public ID v3.`,
     })
     .transform((value) => parsePublicId(value, prefix));
 
-const alertIdInput = publicIdInput("alert").describe(
+const alertIdInput = publicIdInput("al").describe(
   "Identifier of the triggered alert to operate on.",
 );
 const checkIdInput = publicIdInput("check").describe("Identifier of the rank check to retrieve.");
-const competitorIdInput = publicIdInput("comp").describe(
+const competitorIdInput = publicIdInput("cmp").describe(
   "Identifier of the competitor to operate on.",
 );
 const connectionIdInput = publicIdInput("conn").describe(
   "Identifier of the provider connection to operate on.",
 );
-const inviteIdInput = publicIdInput("invite").describe(
+const inviteIdInput = publicIdInput("inv").describe(
   "Identifier of the team invitation to operate on.",
 );
 const keyIdInput = publicIdInput("key").describe("Identifier of the API key to operate on.");
 const keywordIdInput = publicIdInput("kw").describe(
   "Identifier of the tracked keyword to operate on.",
 );
-const memberIdInput = publicIdInput("member").describe(
+const memberIdInput = publicIdInput("mbr").describe(
   "Identifier of the project member to operate on.",
 );
-const migrationTokenIdInput = publicIdInput("mtok").describe(
+const migrationTokenIdInput = publicIdInput("ferry").describe(
   "Identifier of the migration token to operate on.",
 );
 const personalAccessTokenIdInput = publicIdInput("pat").describe(
@@ -104,9 +104,9 @@ const personalAccessTokenIdInput = publicIdInput("pat").describe(
 export const projectIdInput = publicIdInput("prj").describe(
   "Identifier of the Bisibility project to operate on; list_projects returns valid project ids.",
 );
-const ruleIdInput = publicIdInput("rule").describe("Identifier of the alert rule to operate on.");
-const viewIdInput = publicIdInput("view").describe("Identifier of the saved view to operate on.");
-const webhookIdInput = publicIdInput("webhook").describe(
+const ruleIdInput = publicIdInput("alr").describe("Identifier of the alert rule to operate on.");
+const viewIdInput = publicIdInput("viw").describe("Identifier of the saved view to operate on.");
+const webhookIdInput = publicIdInput("we").describe(
   "Identifier of the webhook endpoint to operate on.",
 );
 export const deviceInput = z
@@ -979,7 +979,7 @@ function validateAlertTargets(
     if (!matchesPublicId(targetId, expectedPrefix)) {
       ctx.addIssue({
         code: "custom",
-        message: `Expected a ${expectedPrefix}_ public ID v2.`,
+        message: `Expected a ${expectedPrefix}_ public ID v3.`,
         path: ["target_ids", index],
       });
     }

@@ -37,7 +37,7 @@ The SDK is consumed from the npm registry:
 ## Environment
 
 ```sh
-export BISIBILITY_API_KEY="bsp_live_..."
+export BISIBILITY_API_KEY="bsb_pat_live_..."
 export BISIBILITY_BASE_URL="https://bisibility.com/api/v1"
 export BISIBILITY_PROJECT_ID="prj_..."
 export BISIBILITY_MCP_READ_ONLY="1"
@@ -46,18 +46,18 @@ export BISIBILITY_MCP_TOOLSETS="projects,keywords,checks,rank-history"
 
 `BISIBILITY_BASE_URL` is optional and defaults to `https://bisibility.com/api/v1`. For self-hosted
 installs, set it to your API v1 root, for example `https://rank.example/api/v1`.
-`BISIBILITY_API_KEY` accepts a project key (`bsk_live_...`) or personal access
-token (`bsp_live_...`). Set optional `BISIBILITY_PROJECT_ID` as the default
+`BISIBILITY_API_KEY` accepts a project key (`bsb_key_live_...`) or personal access
+token (`bsb_pat_live_...`). Set optional `BISIBILITY_PROJECT_ID` as the default
 `X-Bisibility-Project` selector for project-implicit PAT tools; a tool's
 optional `project_id` argument overrides it for that call. Every resource ID
 accepted by the MCP server, including `BISIBILITY_PROJECT_ID`, must use public
-ID v2: a canonical lowercase prefix plus `_` and a 24-character lowercase
+ID v3: a canonical lowercase prefix plus `_` and a 24-character lowercase
 CUID2 suffix, for example `prj_a1b2c3d4e5f6g7h8j9k0m2n3`. Raw database IDs,
 legacy IDs, mixed-case IDs, and wrong resource prefixes are rejected. Location
 selection uses the returned `location_key`, never a location ID.
 
-The SDK dependency and lockfile use the published registry package. Do not use
-a local SDK link.
+The server consumes the public ID v3 contract from the published
+`@bisibility/sdk` package. Do not replace it with a local SDK link.
 
 `BISIBILITY_MCP_READ_ONLY` accepts `1`, `true`, `yes`, or `on`, ignoring case. When enabled,
 write tools are not registered and do not appear in `tools/list`.
@@ -73,7 +73,7 @@ control, not a way to improve tool selection.
 
 ```sh
 npm run build
-BISIBILITY_API_KEY="bsk_live_..." node dist/stdio.js
+BISIBILITY_API_KEY="bsb_key_live_..." node dist/stdio.js
 ```
 
 When installed as a package, the bin is:
@@ -93,7 +93,7 @@ Example MCP client configuration using the built local package:
       "command": "node",
       "args": ["/path/to/bisibility-mcp/dist/stdio.js"],
       "env": {
-        "BISIBILITY_API_KEY": "bsk_live_...",
+        "BISIBILITY_API_KEY": "bsb_key_live_...",
         "BISIBILITY_BASE_URL": "https://bisibility.com/api/v1"
       }
     }
@@ -109,7 +109,7 @@ Example using the package bin:
     "bisibility": {
       "command": "bisibility-mcp",
       "env": {
-        "BISIBILITY_API_KEY": "bsk_live_...",
+        "BISIBILITY_API_KEY": "bsb_key_live_...",
         "BISIBILITY_BASE_URL": "https://bisibility.com/api/v1"
       }
     }
@@ -230,9 +230,9 @@ registered tool surface.
 ## Security
 
 The credential's scope is the primary authorization control, and the server accepts two kinds.
-A project key (`bsk_live_...`) belongs to exactly one project, which bounds the damage from a
+A project key (`bsb_key_live_...`) belongs to exactly one project, which bounds the damage from a
 leak and makes it a good fit for a single-project or machine setup. A personal access token
-(`bsp_live_...`) covers the projects you are a member of, so one token serves them all; its
+(`bsb_pat_live_...`) covers the projects you are a member of, so one token serves them all; its
 effective access in each project is the lower of the token's scope and your role there, meaning
 a token never grants more than the person behind it. Use `BISIBILITY_PROJECT_ID` to set the
 default project for a token that spans several, as described under Environment above.

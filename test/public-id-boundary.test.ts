@@ -44,8 +44,8 @@ function atPath(value: unknown, path: string[]) {
   }, value);
 }
 
-describe("public ID v2 MCP boundary", () => {
-  it("accepts every canonical prefix with an unknown strict v2 suffix", () => {
+describe("public ID v3 MCP boundary", () => {
+  it("accepts every canonical prefix with an unknown strict v3 suffix", () => {
     for (const prefix of publicIdPrefixes) {
       const value = `${prefix}_${suffix}`;
       expect(publicIdInput(prefix).parse(value)).toBe(value);
@@ -63,14 +63,14 @@ describe("public ID v2 MCP boundary", () => {
     const projectId = publicId("prj");
 
     expect(parsePublicId(projectId, "prj")).toBe(projectId);
-    expect(() => assertPublicId(publicId("kw"), "prj")).toThrow("Expected a prj_ public ID v2.");
+    expect(() => assertPublicId(publicId("kw"), "prj")).toThrow("Expected a prj_ public ID v3.");
   });
 
   it("rejects wrong prefixes in every typed tool context", () => {
     expect(() => getProjectInputSchema.parse({ project_id: publicId("kw") })).toThrow();
     expect(() => getKeywordInputSchema.parse({ keyword_id: publicId("prj") })).toThrow();
     expect(() => getRankCheckResultInputSchema.parse({ check_id: publicId("kw") })).toThrow();
-    expect(() => revokePersonalTokenInputSchema.parse({ token_id: publicId("mtok") })).toThrow();
+    expect(() => revokePersonalTokenInputSchema.parse({ token_id: publicId("ferry") })).toThrow();
     expect(() =>
       revokeMigrationTokenInputSchema.parse({
         project_id: publicId("prj"),
@@ -81,7 +81,7 @@ describe("public ID v2 MCP boundary", () => {
       updateWebhookInputSchema.parse({
         enabled: true,
         project_id: publicId("prj"),
-        webhook_id: publicId("hook"),
+        webhook_id: publicId("dwh"),
       }),
     ).toThrow();
   });
@@ -139,18 +139,18 @@ describe("public ID v2 MCP boundary", () => {
         ],
         value: rankCheck(),
       },
-      { paths: [[["id"], "rule"]], value: alertRule() },
-      { paths: [[["id"], "alert"]], value: triggeredAlert() },
-      { paths: [[["id"], "member"]], value: teamMember() },
-      { paths: [[["id"], "invite"]], value: teamInvite() },
+      { paths: [[["id"], "alr"]], value: alertRule() },
+      { paths: [[["id"], "al"]], value: triggeredAlert() },
+      { paths: [[["id"], "mbr"]], value: teamMember() },
+      { paths: [[["id"], "inv"]], value: teamInvite() },
       {
         paths: [
-          [["id"], "view"],
+          [["id"], "viw"],
           [["created_by_id"], "usr"],
         ],
         value: savedView(),
       },
-      { paths: [[["id"], "comp"]], value: competitor() },
+      { paths: [[["id"], "cmp"]], value: competitor() },
       {
         paths: [
           [["id"], "conn"],
@@ -159,8 +159,8 @@ describe("public ID v2 MCP boundary", () => {
         value: providerConnection(),
       },
       { paths: [[["project_id"], "prj"]], value: notificationPreferences() },
-      { paths: [[["id"], "job"]], value: migrationJob() },
-      { paths: [[["id"], "mtok"]], value: activeMigrationToken() },
+      { paths: [[["id"], "imp"]], value: migrationJob() },
+      { paths: [[["id"], "ferry"]], value: activeMigrationToken() },
       {
         paths: [
           [["id"], "sig"],

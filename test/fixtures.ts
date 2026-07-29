@@ -195,7 +195,7 @@ export function apiKey(overrides: Partial<ApiKey> = {}): ApiKey {
     id: publicId("key"),
     last_used_at: null,
     name: "CI key",
-    prefix: "bsk_test_fake1234",
+    prefix: "bsb_key_test_fake1234",
     revoked_at: null,
     scope: "admin",
     ...overrides,
@@ -205,8 +205,8 @@ export function apiKey(overrides: Partial<ApiKey> = {}): ApiKey {
 export function createdApiKey(overrides: Partial<CreatedApiKey> = {}): CreatedApiKey {
   return {
     ...apiKey(),
-    masked_value: "bsk_test_fake1234******fake",
-    token: "bsk_test_fake_not_a_real_secret",
+    masked_value: "bsb_key_test_fake1234******fake",
+    token: "bsb_key_test_fake_not_a_real_secret",
     ...overrides,
   };
 }
@@ -258,7 +258,7 @@ export function alertRule(overrides: Partial<AllKeywordAlertRule> = {}): AllKeyw
     condition_type: "threshold",
     enabled: true,
     fires: "2 this week",
-    id: publicId("rule"),
+    id: publicId("alr"),
     name: "Ranking drop",
     period: "Each check",
     recipient_ids: [],
@@ -278,7 +278,7 @@ export function triggeredAlert(overrides: Partial<TriggeredAlert> = {}): Trigger
     ctas: ["Open keyword"],
     current: "#12",
     headline: "Ranking drop",
-    id: publicId("alert"),
+    id: publicId("al"),
     keyword: "rank tracker",
     previous: "#4",
     rule: "Ranking drop",
@@ -293,7 +293,7 @@ export function teamMember(overrides: Partial<TeamMember> = {}): TeamMember {
   return {
     color: "accent",
     email: "owner@example.com",
-    id: publicId("member"),
+    id: publicId("mbr"),
     initials: "OE",
     name: "Owner Example",
     role: "Owner",
@@ -306,7 +306,7 @@ export function teamInvite(overrides: Partial<TeamInvite> = {}): TeamInvite {
   return {
     email: "new@example.com",
     expires_label: "expires in 7d",
-    id: publicId("invite"),
+    id: publicId("inv"),
     invited_label: "invited just now",
     role: "Viewer",
     role_value: "viewer",
@@ -410,7 +410,7 @@ export function savedView(overrides: Partial<SavedView> = {}): SavedView {
     config: savedViewConfig,
     created_at: "2026-01-07T00:00:00.000Z",
     created_by_id: publicId("usr"),
-    id: publicId("view"),
+    id: publicId("viw"),
     name: "Product keywords",
     surface: "keywords",
     ...overrides,
@@ -420,7 +420,7 @@ export function savedView(overrides: Partial<SavedView> = {}): SavedView {
 export function competitor(overrides: Partial<Competitor> = {}): Competitor {
   return {
     domain: "competitor.example.com",
-    id: publicId("comp"),
+    id: publicId("cmp"),
     initials: "R",
     label: "Rankzly",
     ...overrides,
@@ -443,12 +443,12 @@ export function competitorListResponse(
           engine: "google",
           has_rank_data: true,
           key: "us-desktop",
-          rows: [{ gap: 2, keyword: "rank tracker", ranks: { [publicId("comp")]: 2, you: 4 } }],
+          rows: [{ gap: 2, keyword: "rank tracker", ranks: { [publicId("cmp")]: 2, you: 4 } }],
           shares: [
             {
               color: "#111",
               domain: "competitor.example.com",
-              id: publicId("comp"),
+              id: publicId("cmp"),
               initials: "R",
               kind: "Managed",
               label: "Rankzly",
@@ -496,7 +496,7 @@ export function migrationJob(): MigrationTokenListResponse["meta"]["import_job"]
     created_at: "2026-01-08T00:00:00.000Z",
     error: null,
     finished_at: null,
-    id: publicId("job"),
+    id: publicId("imp"),
     progress: 0,
     started_at: null,
     state: "idle",
@@ -510,7 +510,7 @@ export function activeMigrationToken(
     created_at: "2026-01-08T00:00:00.000Z",
     created_by: { email: "owner@example.com", name: "Owner Example" },
     expires_at: "2026-01-08T01:00:00.000Z",
-    id: publicId("mtok"),
+    id: publicId("ferry"),
     scope: "full",
     single_use: true,
     ...overrides,
