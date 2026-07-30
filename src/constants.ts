@@ -5,4 +5,4 @@ export const SERVER_NAME = "@bisibility/mcp";
 // server version tracks releases instead of a hardcoded literal.
 export const SERVER_VERSION =
   typeof __SERVER_VERSION__ === "string" ? __SERVER_VERSION__ : "0.0.0-dev";
-export const DEFAULT_BISIBILITY_BASE_URL = "https://bisibility.com/api/v1";
+export const DEFAULT_BISIBILITY_BASE_URL = "https://eu.bisibility.com/api/v1";

@@ -230,7 +230,7 @@ function createToolHarness(
   const configs = new Map<
     string,
     {
-      annotations: { destructiveHint: boolean; readOnlyHint: boolean };
+      annotations: { destructiveHint: boolean; openWorldHint: boolean; readOnlyHint: boolean };
       description: string;
       inputSchema: object;
       title: string;
@@ -394,26 +394,32 @@ describe("registerBisibilityTools", () => {
 
     expect(configs.get("list_keywords")?.annotations).toEqual({
       destructiveHint: false,
+      openWorldHint: false,
       readOnlyHint: true,
     });
     expect(configs.get("create_project")?.annotations).toEqual({
       destructiveHint: false,
+      openWorldHint: false,
       readOnlyHint: false,
     });
     expect(configs.get("delete_project")?.annotations).toEqual({
       destructiveHint: true,
+      openWorldHint: false,
       readOnlyHint: false,
     });
     expect(configs.get("bulk_update_keywords")?.annotations).toEqual({
       destructiveHint: true,
+      openWorldHint: false,
       readOnlyHint: false,
     });
     expect(configs.get("list_ranked_keyword_suggestions")?.annotations).toEqual({
       destructiveHint: false,
+      openWorldHint: true,
       readOnlyHint: false,
     });
     expect(configs.get("test_provider_connection")?.annotations).toEqual({
       destructiveHint: false,
+      openWorldHint: true,
       readOnlyHint: false,
     });
   });

@@ -1,6 +1,7 @@
 {
   "name": "@bisibility/mcp",
-  "version": "0.5.1",
+  "version": "0.5.2",
+  "mcpName": "com.bisibility/mcp",
   "description": "MCP server for SEO rank tracking - give AI agents access to keyword rankings, SERP history, and rank checks.",
   "type": "module",
   "license": "Apache-2.0",
@@ -41,7 +42,7 @@
     },
     "./package.json": "./package.json"
   },
-  "files": ["dist", "LICENSE", "README.md"],
+  "files": ["assets/bisibility-mcp.png", "dist", "LICENSE", "README.md", "server.json"],
   "publishConfig": {
     "access": "public"
   },

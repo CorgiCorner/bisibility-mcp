@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.5.2 - 2026-07-30
+
+- Added Official MCP Registry metadata for the npm and hosted transports, a one-command `npx`
+  setup, agent installation instructions, and a marketplace icon.
+- Added `openWorldHint` annotations so MCP clients can distinguish tools that contact external
+  providers or send invitations.
+- Changed the default Bisibility Cloud API URL to the direct regional endpoint so credentials are
+  not sent through a cross-origin redirect.
+
 ## 0.5.1 - 2026-07-30
 
 - Improved package metadata to describe the MCP server's SEO rank-tracking tools and agent use

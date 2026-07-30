@@ -823,6 +823,7 @@ function registerTool<TSchema extends ToolSchema>(
     {
       annotations: {
         destructiveHint: config.destructive ?? false,
+        openWorldHint: OPEN_WORLD_TOOL_NAMES.has(name),
         readOnlyHint: config.access === "read",
       },
       description: config.description,
@@ -832,6 +833,20 @@ function registerTool<TSchema extends ToolSchema>(
     toolHandler(config.inputSchema, execute),
   );
 }
+
+const OPEN_WORLD_TOOL_NAMES = new Set([
+  "analyze_backlinks",
+  "connect_provider",
+  "create_team_invite",
+  "get_keyword_metrics",
+  "list_ranked_keyword_suggestions",
+  "load_more_backlink_rows",
+  "research_keywords",
+  "resend_team_invite",
+  "run_rank_check",
+  "sync_project_traffic",
+  "test_provider_connection",
+]);
 
 export function registerBisibilityTools(
   server: McpServer,

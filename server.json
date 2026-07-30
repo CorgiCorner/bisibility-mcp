@@ -1,0 +1,66 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.bisibility/mcp",
+  "title": "Bisibility",
+  "description": "Track keyword rankings, research SEO opportunities, and manage Bisibility projects with AI agents.",
+  "version": "0.5.2",
+  "websiteUrl": "https://bisibility.com/docs/sdks/mcp",
+  "repository": {
+    "url": "https://github.com/CorgiCorner/bisibility-mcp",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://bisibility.com/icon.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": ["any"]
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@bisibility/mcp",
+      "version": "0.5.2",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "BISIBILITY_API_KEY",
+          "description": "A Bisibility project API key or personal access token.",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "BISIBILITY_BASE_URL",
+          "description": "The Bisibility API v1 root. Change this for a self-hosted instance.",
+          "default": "https://eu.bisibility.com/api/v1",
+          "format": "string"
+        },
+        {
+          "name": "BISIBILITY_PROJECT_ID",
+          "description": "An optional default public project ID for personal access tokens.",
+          "format": "string"
+        },
+        {
+          "name": "BISIBILITY_MCP_READ_ONLY",
+          "description": "Register only read-only tools.",
+          "format": "boolean"
+        },
+        {
+          "name": "BISIBILITY_MCP_TOOLSETS",
+          "description": "An optional comma-separated allowlist of Bisibility toolsets.",
+          "format": "string"
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://bisibility.com/api/mcp"
+    }
+  ]
+}

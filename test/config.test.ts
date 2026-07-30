@@ -34,6 +34,10 @@ describe("Bisibility MCP config", () => {
     bisibilityClientMock.mockClear();
   });
 
+  it("defaults Bisibility Cloud to the direct regional API URL", () => {
+    expect(DEFAULT_BISIBILITY_BASE_URL).toBe("https://eu.bisibility.com/api/v1");
+  });
+
   it("reads API key and defaults the base URL", () => {
     expect(readBisibilityMcpConfig({ BISIBILITY_API_KEY: " bsb_key_live_1 " })).toEqual({
       apiKey: "bsb_key_live_1",

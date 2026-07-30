@@ -19,7 +19,15 @@ published `@bisibility/sdk` package.
 - A Bisibility API key
 - A Bisibility API v1 base URL
 
-## Install and Build
+## Install
+
+Run the published stdio server without a global install:
+
+```sh
+npx -y @bisibility/mcp
+```
+
+For local development, install and build from this package directory:
 
 From this package directory:
 
@@ -31,20 +39,20 @@ npm run build
 The SDK is consumed from the npm registry:
 
 ```json
-"@bisibility/sdk": "^0.5.0"
+"@bisibility/sdk": "^0.6.0"
 ```
 
 ## Environment
 
 ```sh
 export BISIBILITY_API_KEY="bsb_pat_live_..."
-export BISIBILITY_BASE_URL="https://bisibility.com/api/v1"
+export BISIBILITY_BASE_URL="https://eu.bisibility.com/api/v1"
 export BISIBILITY_PROJECT_ID="prj_..."
 export BISIBILITY_MCP_READ_ONLY="1"
 export BISIBILITY_MCP_TOOLSETS="projects,keywords,checks,rank-history"
 ```
 
-`BISIBILITY_BASE_URL` is optional and defaults to `https://bisibility.com/api/v1`. For self-hosted
+`BISIBILITY_BASE_URL` is optional and defaults to `https://eu.bisibility.com/api/v1`. For self-hosted
 installs, set it to your API v1 root, for example `https://rank.example/api/v1`.
 `BISIBILITY_API_KEY` accepts a project key (`bsb_key_live_...`) or personal access
 token (`bsb_pat_live_...`). Set optional `BISIBILITY_PROJECT_ID` as the default
@@ -84,24 +92,24 @@ bisibility-mcp
 
 ## Connect
 
-Example MCP client configuration using the built local package:
+Example MCP client configuration using the published npm package:
 
 ```json
 {
   "mcpServers": {
     "bisibility": {
-      "command": "node",
-      "args": ["/path/to/bisibility-mcp/dist/stdio.js"],
+      "command": "npx",
+      "args": ["-y", "@bisibility/mcp"],
       "env": {
         "BISIBILITY_API_KEY": "bsb_key_live_...",
-        "BISIBILITY_BASE_URL": "https://bisibility.com/api/v1"
+        "BISIBILITY_BASE_URL": "https://eu.bisibility.com/api/v1"
       }
     }
   }
 }
 ```
 
-Example using the package bin:
+Example using the package bin after a global or workspace install:
 
 ```json
 {
@@ -110,7 +118,7 @@ Example using the package bin:
       "command": "bisibility-mcp",
       "env": {
         "BISIBILITY_API_KEY": "bsb_key_live_...",
-        "BISIBILITY_BASE_URL": "https://bisibility.com/api/v1"
+        "BISIBILITY_BASE_URL": "https://eu.bisibility.com/api/v1"
       }
     }
   }
