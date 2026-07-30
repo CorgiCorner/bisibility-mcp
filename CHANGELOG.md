@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.5.1 - 2026-07-30
+
+- Improved package metadata to describe the MCP server's SEO rank-tracking tools and agent use
+  cases.
+
 ## 0.5.0 - 2026-07-29
 
 - Breaking: require public ID v3 prefixes and `bsb_key_*` or `bsb_pat_live_` credentials.

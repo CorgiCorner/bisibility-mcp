@@ -1,11 +1,23 @@
 {
   "name": "@bisibility/mcp",
-  "version": "0.5.0",
-  "description": "Model Context Protocol server for the Bisibility REST API.",
+  "version": "0.5.1",
+  "description": "MCP server for SEO rank tracking - give AI agents access to keyword rankings, SERP history, and rank checks.",
   "type": "module",
   "license": "Apache-2.0",
   "author": "Corgi Corner",
-  "keywords": ["bisibility", "mcp", "model-context-protocol", "rank-tracking", "seo", "typescript"],
+  "keywords": [
+    "ai-agents",
+    "bisibility",
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "rank-tracker",
+    "rank-tracking",
+    "seo",
+    "seo-tools",
+    "serp",
+    "typescript"
+  ],
   "homepage": "https://bisibility.com",
   "bugs": {
     "url": "https://github.com/CorgiCorner/bisibility-mcp/issues"
