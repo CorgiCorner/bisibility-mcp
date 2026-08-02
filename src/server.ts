@@ -20,7 +20,7 @@ export function createBisibilityMcpServer(options: CreateBisibilityMcpServerOpti
       : undefined;
   const hasDefaultProject = Boolean(process.env.BISIBILITY_PROJECT_ID?.trim());
   const instructions = [
-    "Bisibility MCP lets you inspect and manage SEO tracking projects, rankings, alerts, webhooks, and integrations.",
+    "bisibility MCP lets you inspect and manage SEO tracking projects, rankings, alerts, webhooks, and integrations.",
     // Conditional on purpose. An unconditional "call list_projects first" made both
     // models resolve the project even when the prompt already named one, costing accuracy on
     // tasks that were previously correct.

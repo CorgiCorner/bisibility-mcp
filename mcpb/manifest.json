@@ -1,0 +1,81 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json",
+  "manifest_version": "0.4",
+  "name": "bisibility",
+  "display_name": "bisibility",
+  "version": "0.6.0",
+  "description": "Track keyword rankings, research SEO opportunities, and manage bisibility projects with AI agents.",
+  "long_description": "Connect a local MCP client to bisibility Cloud or a self-hosted bisibility instance. The bundle exposes the same rank tracking, keyword research, backlink, alert, and project tools as the npm package, with guided configuration for credentials and least-privilege tool selection.",
+  "author": {
+    "name": "Corgi Corner",
+    "url": "https://bisibility.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CorgiCorner/bisibility-mcp.git"
+  },
+  "homepage": "https://bisibility.com",
+  "documentation": "https://bisibility.com/docs/sdks/mcp",
+  "support": "https://github.com/CorgiCorner/bisibility-mcp/issues",
+  "icon": "assets/bisibility-mcp.png",
+  "server": {
+    "type": "node",
+    "entry_point": "server/dist/stdio.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/dist/stdio.js"],
+      "env": {
+        "BISIBILITY_API_KEY": "${user_config.api_key}",
+        "BISIBILITY_BASE_URL": "${user_config.base_url}",
+        "BISIBILITY_PROJECT_ID": "${user_config.project_id}",
+        "BISIBILITY_MCP_READ_ONLY": "${user_config.read_only}",
+        "BISIBILITY_MCP_TOOLSETS": "${user_config.toolsets}"
+      }
+    }
+  },
+  "tools_generated": true,
+  "keywords": ["ai-agents", "keyword-research", "mcp", "rank-tracking", "seo", "serp"],
+  "license": "Apache-2.0",
+  "privacy_policies": ["https://bisibility.com/privacy"],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18"
+    }
+  },
+  "user_config": {
+    "api_key": {
+      "type": "string",
+      "title": "bisibility API key",
+      "description": "A project API key or personal access token. Use the narrowest scopes needed by this client.",
+      "sensitive": true,
+      "required": true
+    },
+    "base_url": {
+      "type": "string",
+      "title": "bisibility API URL",
+      "description": "The API v1 root for bisibility Cloud or your self-hosted instance.",
+      "default": "https://eu.bisibility.com/api/v1",
+      "required": false
+    },
+    "project_id": {
+      "type": "string",
+      "title": "Default project ID",
+      "description": "Optional public project ID used as the default for a personal access token.",
+      "required": false
+    },
+    "read_only": {
+      "type": "boolean",
+      "title": "Read-only tools",
+      "description": "Register only tools that do not modify bisibility data.",
+      "default": false,
+      "required": false
+    },
+    "toolsets": {
+      "type": "string",
+      "title": "Toolsets",
+      "description": "Optional comma-separated allowlist of toolsets. Leave empty to register every permitted tool.",
+      "required": false
+    }
+  }
+}

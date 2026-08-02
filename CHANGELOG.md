@@ -2,13 +2,20 @@
 
 ## Unreleased
 
+## 0.6.0 - 2026-08-02
+
+- Added tools to list, save, and delete keyword ideas without starting rank tracking.
+- Added a pre-built MCPB target for one-click installation with guided credentials, self-hosted
+  API URLs, and least-privilege tool controls.
+- Added a public distribution status page covering package, registry, and directory availability.
+
 ## 0.5.2 - 2026-07-30
 
 - Added Official MCP Registry metadata for the npm and hosted transports, a one-command `npx`
   setup, agent installation instructions, and a marketplace icon.
 - Added `openWorldHint` annotations so MCP clients can distinguish tools that contact external
   providers or send invitations.
-- Changed the default Bisibility Cloud API URL to the direct regional endpoint so credentials are
+- Changed the default bisibility Cloud API URL to the direct regional endpoint so credentials are
   not sent through a cross-origin redirect.
 
 ## 0.5.1 - 2026-07-30

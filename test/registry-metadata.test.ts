@@ -8,6 +8,11 @@ type PackageManifest = {
   version: string;
 };
 
+type GlamaManifest = {
+  $schema: string;
+  maintainers: string[];
+};
+
 type ServerManifest = {
   name: string;
   packages: Array<{
@@ -23,6 +28,7 @@ type ServerManifest = {
 
 const packageManifest = JSON.parse(readFileSync("package.json", "utf8")) as PackageManifest;
 const serverManifest = JSON.parse(readFileSync("server.json", "utf8")) as ServerManifest;
+const glamaManifest = JSON.parse(readFileSync("glama.json", "utf8")) as GlamaManifest;
 
 describe("MCP distribution metadata", () => {
   it("keeps the Official MCP Registry identity and npm release aligned", () => {
@@ -60,6 +66,13 @@ describe("MCP distribution metadata", () => {
     expect(agentInstall).toContain("https://eu.bisibility.com/api/v1");
     expect(agentInstall).toContain("BISIBILITY_API_KEY");
     expect(agentInstall).toContain("list_projects");
+  });
+
+  it("publishes Glama ownership metadata for the organization repository", () => {
+    expect(glamaManifest).toEqual({
+      $schema: "https://glama.ai/mcp/schemas/server.json",
+      maintainers: ["msniezynski"],
+    });
   });
 
   it("ships a 400 by 400 PNG marketplace icon", () => {

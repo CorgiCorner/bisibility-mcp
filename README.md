@@ -1,8 +1,8 @@
 # @bisibility/mcp
 
-> Part of [bisibility](https://github.com/CorgiCorner/bisibility) - open-source keyword
-> rank tracking you can self-host and automate. This repository contains the MCP server
-> that exposes Bisibility tools to AI agents.
+> Part of [bisibility](https://github.com/CorgiCorner/bisibility) - an open-source SEO
+> platform for keyword research, backlink analysis, and Google rank tracking. This
+> repository contains the MCP server that exposes bisibility tools to AI agents.
 >
 > [Docs](https://bisibility.com/docs) ·
 > [API reference](https://bisibility.com/docs/api/overview) ·
@@ -10,14 +10,23 @@
 >
 > **Status:** Developer preview.
 
-Model Context Protocol server for the Bisibility REST API. It exposes stdio tools backed by the
-published `@bisibility/sdk` package.
+## Distribution
+
+[![npm version](https://img.shields.io/npm/v/%40bisibility%2Fmcp?label=npm)](https://www.npmjs.com/package/@bisibility/mcp)
+[![Official MCP Registry](https://img.shields.io/badge/Official_MCP_Registry-active-2ea44f)](https://registry.modelcontextprotocol.io/v0.1/servers?search=com.bisibility%2Fmcp)
+[![Glama](https://img.shields.io/badge/Glama-listed-2ea44f)](https://glama.ai/mcp/servers/CorgiCorner/bisibility-mcp)
+[![smithery badge](https://smithery.ai/badge/bisibility/mcp)](https://smithery.ai/servers/bisibility/mcp)
+
+[Distribution status and release channels](https://github.com/CorgiCorner/bisibility-mcp/blob/main/docs/DISTRIBUTION.md)
+
+Model Context Protocol server for the bisibility REST API. It exposes stdio tools
+backed by the published `@bisibility/sdk` package.
 
 ## Requirements
 
 - Node.js 18 or newer
-- A Bisibility API key
-- A Bisibility API v1 base URL
+- A bisibility API key
+- A bisibility API v1 base URL
 
 ## Install
 
@@ -41,6 +50,22 @@ The SDK is consumed from the npm registry:
 ```json
 "@bisibility/sdk": "^0.6.0"
 ```
+
+### MCPB bundle
+
+Directories and clients that support MCPB can distribute bisibility as a one-click local bundle.
+The bundle includes the stdio server and all production dependencies, but never a bisibility
+credential. The client collects configuration during installation.
+
+Build the upload artifact with:
+
+```sh
+npm ci
+npm run build
+npm run build:mcpb
+```
+
+The versioned file is written to `artifacts/`.
 
 ## Environment
 
@@ -92,7 +117,19 @@ bisibility-mcp
 
 ## Connect
 
-Example MCP client configuration using the published npm package:
+After building the repository, connect Codex to the local stdio server:
+
+```sh
+codex mcp add bisibility \
+  --env BISIBILITY_API_KEY="bsb_key_live_..." \
+  --env BISIBILITY_BASE_URL="https://bisibility.com/api/v1" \
+  -- node /absolute/path/to/bisibility-mcp/dist/stdio.js
+```
+
+The `codex mcp add` syntax above was verified against the Codex CLI. Replace the
+absolute path and credential before running it.
+
+Other MCP clients commonly use a JSON configuration like this:
 
 ```json
 {
@@ -109,7 +146,7 @@ Example MCP client configuration using the published npm package:
 }
 ```
 
-Example using the package bin after a global or workspace install:
+If `bisibility-mcp` is installed on the client's `PATH`, use the package bin:
 
 ```json
 {
@@ -215,6 +252,9 @@ switch transports without rewriting tool calls.
 - `set_provider_priority`
 - `set_primary_provider`
 - `disconnect_provider`
+- `list_saved_keywords`
+- `create_saved_keywords`
+- `delete_saved_keyword`
 - `list_saved_views`
 - `create_saved_view`
 - `delete_saved_view`
@@ -253,7 +293,7 @@ permissions of the configured credential.
 An agent that receives a write-scoped or admin credential can create and change project data.
 The destructive surface includes `delete_project`, `delete_keyword`,
 `bulk_update_keywords` when its operation is `delete`, `delete_webhook`,
-`delete_alert_rule`, `delete_saved_view`,
+`delete_alert_rule`, `delete_saved_keyword`, `delete_saved_view`,
 `remove_team_member`, `remove_competitor`,
 `disconnect_provider`, `revoke_api_key`,
 `revoke_personal_token`, `revoke_team_invite`, and

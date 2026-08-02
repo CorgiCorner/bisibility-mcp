@@ -1,6 +1,6 @@
-# Contributing to the Bisibility MCP server
+# Contributing to the bisibility MCP server
 
-Thank you for helping improve the Bisibility MCP server.
+Thank you for helping improve the bisibility MCP server.
 
 ## Where to File What
 

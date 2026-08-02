@@ -1,12 +1,12 @@
-# Install Bisibility MCP
+# Install bisibility MCP
 
-Use this flow when configuring Bisibility for an MCP client.
+Use this flow when configuring bisibility for an MCP client.
 
-1. Ask the user whether they use Bisibility Cloud or a self-hosted instance.
+1. Ask the user whether they use bisibility Cloud or a self-hosted instance.
 2. Ask the user to create a least-privilege project API key or personal access token.
 3. Configure the stdio server with `npx -y @bisibility/mcp`.
 4. Set `BISIBILITY_API_KEY` to the credential from step 2.
-5. Set `BISIBILITY_BASE_URL` to the instance API v1 root. Bisibility Cloud uses
+5. Set `BISIBILITY_BASE_URL` to the instance API v1 root. bisibility Cloud uses
    `https://eu.bisibility.com/api/v1`.
 6. Optionally set `BISIBILITY_PROJECT_ID` when a personal access token should default to one
    project.

@@ -122,6 +122,9 @@ const expectedToolNames = [
   "set_provider_priority",
   "set_primary_provider",
   "disconnect_provider",
+  "list_saved_keywords",
+  "create_saved_keywords",
+  "delete_saved_keyword",
   "list_saved_views",
   "create_saved_view",
   "delete_saved_view",
@@ -147,6 +150,7 @@ function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeo
     createMyToken: vi.fn(),
     createProject: vi.fn(),
     createProjectApiKey: vi.fn(),
+    createSavedKeywords: vi.fn(),
     createSavedView: vi.fn(),
     createSignal: vi.fn(),
     createTeamInvite: vi.fn(),
@@ -154,6 +158,7 @@ function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeo
     deleteAlertRule: vi.fn(),
     deleteKeyword: vi.fn(),
     deleteProject: vi.fn(),
+    deleteSavedKeyword: vi.fn(),
     deleteSavedView: vi.fn(),
     deleteWebhook: vi.fn(),
     disconnectProvider: vi.fn(),
@@ -181,6 +186,7 @@ function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeo
     listProviders: vi.fn(),
     listRankChecks: vi.fn(),
     listRankedKeywordSuggestions: vi.fn(),
+    listSavedKeywords: vi.fn(),
     listSavedViews: vi.fn(),
     listSearchPerformanceQueryStats: vi.fn(),
     listSignals: vi.fn(),
@@ -301,7 +307,7 @@ function missingRequiredDescriptions(schema: Record<string, unknown>, path: stri
 }
 
 describe("registerBisibilityTools", () => {
-  it("registers the Bisibility MCP tool surface", () => {
+  it("registers the bisibility MCP tool surface", () => {
     const { configs, server, tools } = createToolHarness();
 
     expect([...tools.keys()]).toEqual(expectedToolNames);
@@ -317,7 +323,7 @@ describe("registerBisibilityTools", () => {
   it("uses the same unprefixed snake_case names as the built-in HTTP server", () => {
     const { tools } = createToolHarness();
 
-    expect([...tools]).toHaveLength(84);
+    expect([...tools]).toHaveLength(87);
     expect([...tools.keys()].every((name) => /^[a-z][a-z0-9_]*$/.test(name))).toBe(true);
     expect([...tools.keys()].some((name) => name.startsWith("bisibility_"))).toBe(false);
   });
@@ -357,7 +363,7 @@ describe("registerBisibilityTools", () => {
       "resend_",
     ];
 
-    expect(tools.size).toBe(32);
+    expect(tools.size).toBe(33);
     expect(
       [...tools.keys()].filter((name) =>
         mutatingPrefixes.some((prefix) => name.startsWith(prefix)),
@@ -2197,6 +2203,49 @@ describe("registerBisibilityTools", () => {
       undefined,
       undefined,
     );
+  });
+
+  it("lists, creates, and deletes saved keywords", async () => {
+    const { callTool, client } = createToolHarness();
+    client.listSavedKeywords.mockResolvedValueOnce(listResponse([], "saved_next"));
+    client.createSavedKeywords.mockResolvedValueOnce({
+      duplicate_count: 1,
+      results: [
+        { keyword: "rank tracker", status: "created" },
+        { keyword: "already tracked", status: "skipped" },
+      ],
+      saved_count: 1,
+    });
+    client.deleteSavedKeyword.mockResolvedValueOnce({ removed_count: 1 });
+
+    await callTool("list_saved_keywords", {
+      cursor: "saved_cursor",
+      limit: 10,
+      project_id: publicId("prj"),
+    });
+    await callTool("create_saved_keywords", {
+      idempotency_key: "idem_saved",
+      keywords: ["rank tracker", { keyword: "already tracked", location: "US" }],
+      project_id: publicId("prj"),
+    });
+    await callTool("delete_saved_keyword", {
+      idempotency_key: "idem_delete_saved",
+      project_id: publicId("prj"),
+      saved_keyword_id: publicId("svkw"),
+    });
+
+    expect(client.listSavedKeywords).toHaveBeenCalledWith(publicId("prj"), {
+      cursor: "saved_cursor",
+      limit: 10,
+    });
+    expect(client.createSavedKeywords).toHaveBeenCalledWith(
+      publicId("prj"),
+      { keywords: ["rank tracker", { keyword: "already tracked", location: "US" }] },
+      { idempotencyKey: "idem_saved" },
+    );
+    expect(client.deleteSavedKeyword).toHaveBeenCalledWith(publicId("prj"), publicId("svkw"), {
+      idempotencyKey: "idem_delete_saved",
+    });
   });
 
   it("manages saved views and competitors", async () => {

@@ -29,12 +29,12 @@ describe("server metadata", () => {
   });
 });
 
-describe("Bisibility MCP config", () => {
+describe("bisibility MCP config", () => {
   beforeEach(() => {
     bisibilityClientMock.mockClear();
   });
 
-  it("defaults Bisibility Cloud to the direct regional API URL", () => {
+  it("defaults bisibility Cloud to the direct regional API URL", () => {
     expect(DEFAULT_BISIBILITY_BASE_URL).toBe("https://eu.bisibility.com/api/v1");
   });
 
@@ -82,7 +82,7 @@ describe("Bisibility MCP config", () => {
 
   it("requires BISIBILITY_API_KEY", () => {
     expect(() => readBisibilityMcpConfig({})).toThrow(
-      "BISIBILITY_API_KEY is required to run the Bisibility MCP server.",
+      "BISIBILITY_API_KEY is required to run the bisibility MCP server.",
     );
   });
 

@@ -1,6 +1,6 @@
 {
   "name": "@bisibility/mcp",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "mcpName": "com.bisibility/mcp",
   "description": "MCP server for SEO rank tracking - give AI agents access to keyword rankings, SERP history, and rank checks.",
   "type": "module",
@@ -64,6 +64,7 @@
   "packageManager": "npm@10.9.3",
   "scripts": {
     "build": "tsup",
+    "build:mcpb": "node scripts/build-mcpb.mjs",
     "check": "npm run check:node && npm run lint && npm run typecheck && npm test",
     "check:node": "node tools/check-node.mjs",
     "dev": "tsx src/stdio.ts",
@@ -78,7 +79,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@bisibility/sdk": "^0.6.0",
+    "@bisibility/sdk": "^0.7.0",
     "@modelcontextprotocol/sdk": "1.29.0",
     "zod": "^4.4.3"
   },

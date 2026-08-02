@@ -102,9 +102,12 @@ const personalAccessTokenIdInput = publicIdInput("pat").describe(
   "Identifier of the personal access token to operate on.",
 );
 export const projectIdInput = publicIdInput("prj").describe(
-  "Identifier of the Bisibility project to operate on; list_projects returns valid project ids.",
+  "Identifier of the bisibility project to operate on; list_projects returns valid project ids.",
 );
 const ruleIdInput = publicIdInput("alr").describe("Identifier of the alert rule to operate on.");
+const savedKeywordIdInput = publicIdInput("svkw").describe(
+  "Identifier of the saved keyword to delete.",
+);
 const viewIdInput = publicIdInput("viw").describe("Identifier of the saved view to operate on.");
 const webhookIdInput = publicIdInput("we").describe(
   "Identifier of the webhook endpoint to operate on.",
@@ -143,14 +146,30 @@ export const teamInviteRoleInput = z
   .enum(["admin", "member", "viewer"])
   .describe("Project role to grant to the invited or existing team member.");
 export const migrationScopeInput = z.enum(["full", "keywords"]);
-export const savedViewChangeFilterInput = z.enum(["any", "down", "lost", "new", "up"]);
+export const savedViewChangeFilterInput = z
+  .enum(["any", "down", "lost", "new", "up"])
+  .describe("Ranking change category included in the saved view.");
 // Country and SERP filters are validated server-side against the data-driven
 // market list, so accept any string here instead of a stale hardcoded enum.
 // Known values are documented in the create-saved-view tool description.
-export const savedViewCountryFilterInput = z.string().trim().min(1).max(80);
-export const savedViewDeviceFilterInput = z.enum(["all", "desktop", "mobile"]);
-export const savedViewPositionFilterInput = z.enum(["11-50", "51-100", "top10", "top3"]);
-export const savedViewSerpFilterInput = z.string().trim().min(1).max(80);
+export const savedViewCountryFilterInput = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .describe("Country filter stored in the saved view.");
+export const savedViewDeviceFilterInput = z
+  .enum(["all", "desktop", "mobile"])
+  .describe("Device filter stored in the saved view.");
+export const savedViewPositionFilterInput = z
+  .enum(["11-50", "51-100", "top10", "top3"])
+  .describe("Ranking position range stored in the saved view.");
+export const savedViewSerpFilterInput = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .describe("SERP feature filter stored in the saved view.");
 // Provider ids are registry-driven and validated server-side. Keep known values
 // in the description without rejecting providers added after this MCP release.
 export const providerIdInput = z
@@ -321,7 +340,7 @@ export const updateMeInputSchema = z
       .trim()
       .min(1)
       .max(120)
-      .describe("Display name chosen for your Bisibility account."),
+      .describe("Display name chosen for your bisibility account."),
   })
   .strict();
 
@@ -460,7 +479,14 @@ export const updateProjectDefaultsInputSchema = z
     ...requestOptionsInput,
     city: nullableLimitedText(120),
     country: optionalLimitedText(120),
-    cron_expression: z.string().trim().min(1).max(120).nullable().optional(),
+    cron_expression: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .nullable()
+      .optional()
+      .describe("Cron expression used when frequency is custom_cron; otherwise null."),
     device: deviceInput.optional(),
     frequency: rankCheckFrequencyInput,
     jitter_minutes: z.number().int().min(0).max(120).optional(),
@@ -1230,7 +1256,8 @@ export const savedViewFiltersInputSchema = z
     vol_min: z.number().min(0).max(50).default(0),
     wrong_url: z.boolean().default(false),
   })
-  .strict();
+  .strict()
+  .describe("Filters stored in the saved view.");
 
 export const keywordSavedViewConfigInputSchema = z
   .object({
@@ -1336,6 +1363,52 @@ export const deleteSavedViewInputSchema = z
     ...requestOptionsInput,
     project_id: projectIdInput,
     view_id: viewIdInput,
+  })
+  .strict();
+
+const savedKeywordTextInput = z
+  .string()
+  .trim()
+  .min(1)
+  .max(180)
+  .describe("Keyword phrase to save without starting rank tracking.");
+const savedKeywordSnapshotInputSchema = z
+  .object({
+    cpc_cents: z.number().int().nonnegative().nullable().optional(),
+    difficulty: z.number().int().min(0).max(100).nullable().optional(),
+    intent: z.string().trim().min(1).max(80).nullable().optional(),
+    keyword: z
+      .string()
+      .trim()
+      .min(1)
+      .max(180)
+      .describe("Keyword phrase represented by this research snapshot."),
+    location: locationKeyInput.optional(),
+    search_volume: z.number().int().nonnegative().nullable().optional(),
+    source_seed: savedKeywordTextInput.nullable().optional(),
+    variant_count: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
+export const listSavedKeywordsInputSchema = listProjectResourcesInputSchema;
+
+export const createSavedKeywordsInputSchema = z
+  .object({
+    ...requestOptionsInput,
+    keywords: z
+      .array(z.union([savedKeywordTextInput, savedKeywordSnapshotInputSchema]))
+      .min(1)
+      .max(500)
+      .describe("Keyword ideas to save without starting rank tracking."),
+    project_id: projectIdInput,
+  })
+  .strict();
+
+export const deleteSavedKeywordInputSchema = z
+  .object({
+    ...requestOptionsInput,
+    project_id: projectIdInput,
+    saved_keyword_id: savedKeywordIdInput,
   })
   .strict();
 

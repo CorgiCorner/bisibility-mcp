@@ -8,6 +8,8 @@ import type {
   CreateKeywordInput,
   CreateMyTokenInput,
   CreateProjectInput,
+  CreateSavedKeywordInput,
+  CreateSavedKeywordsInput,
   CreateSavedViewInput,
   CreateSignalInput,
   CreateTeamInviteInput,
@@ -57,6 +59,7 @@ import {
   createPersonalTokenInputSchema,
   createProjectApiKeyInputSchema,
   createProjectInputSchema,
+  createSavedKeywordsInputSchema,
   createSavedViewInputSchema,
   createSignalInputSchema,
   createTeamInviteInputSchema,
@@ -64,6 +67,7 @@ import {
   deleteAlertRuleInputSchema,
   deleteKeywordInputSchema,
   deleteProjectInputSchema,
+  deleteSavedKeywordInputSchema,
   deleteSavedViewInputSchema,
   deleteWebhookInputSchema,
   emptyInputSchema,
@@ -90,6 +94,7 @@ import {
   listProjectsInputSchema,
   listProvidersInputSchema,
   listRankedKeywordSuggestionsInputSchema,
+  listSavedKeywordsInputSchema,
   listSavedViewsInputSchema,
   listSearchPerformanceQueryStatsInputSchema,
   listSignalsInputSchema,
@@ -145,6 +150,7 @@ export type BisibilityToolClient = Pick<
   | "createMyToken"
   | "createProject"
   | "createProjectApiKey"
+  | "createSavedKeywords"
   | "createSavedView"
   | "createSignal"
   | "createTeamInvite"
@@ -152,6 +158,7 @@ export type BisibilityToolClient = Pick<
   | "deleteAlertRule"
   | "deleteKeyword"
   | "deleteProject"
+  | "deleteSavedKeyword"
   | "deleteSavedView"
   | "deleteWebhook"
   | "disconnectProvider"
@@ -179,6 +186,7 @@ export type BisibilityToolClient = Pick<
   | "listProviders"
   | "listRankChecks"
   | "listRankedKeywordSuggestions"
+  | "listSavedKeywords"
   | "listSavedViews"
   | "listSearchPerformanceQueryStats"
   | "listSignals"
@@ -251,6 +259,16 @@ function omitUndefined<T extends Record<string, unknown>>(value: T): Partial<T> 
   return Object.fromEntries(
     Object.entries(value).filter(([, item]) => item !== undefined),
   ) as Partial<T>;
+}
+
+function savedKeywordsPayload(
+  input: ParsedToolInput<typeof createSavedKeywordsInputSchema>,
+): CreateSavedKeywordsInput {
+  return {
+    keywords: input.keywords.map((item) =>
+      typeof item === "string" ? item : (omitUndefined(item) as CreateSavedKeywordInput),
+    ),
+  };
 }
 
 function listKeywordsOptions(
@@ -867,7 +885,7 @@ export function registerBisibilityTools(
     {
       access: "read",
       group: "system",
-      description: "Check Bisibility API health and configured SERP providers.",
+      description: "Check bisibility API health and configured SERP providers.",
       inputSchema: emptyInputSchema,
       title: "Get API health",
     },
@@ -880,7 +898,7 @@ export function registerBisibilityTools(
     {
       access: "read",
       group: "system",
-      description: "List the public Bisibility API capabilities exposed for agent workflows.",
+      description: "List the public bisibility API capabilities exposed for agent workflows.",
       inputSchema: emptyInputSchema,
       title: "Get API capabilities",
     },
@@ -1002,7 +1020,7 @@ export function registerBisibilityTools(
     {
       access: "read",
       group: "projects",
-      description: "Get one Bisibility project by project id.",
+      description: "Get one bisibility project by project id.",
       inputSchema: getProjectInputSchema,
       title: "Get project",
     },
@@ -2062,6 +2080,53 @@ export function registerBisibilityTools(
     },
     async (input) =>
       client.disconnectProvider(input.project_id, input.provider_id, requestOptions(input)),
+  );
+
+  registerTool(
+    registration,
+    "list_saved_keywords",
+    {
+      access: "read",
+      group: "saved-keywords",
+      description: "List keyword ideas saved without rank tracking for a project.",
+      inputSchema: listSavedKeywordsInputSchema,
+      title: "List saved keywords",
+    },
+    async (input) => client.listSavedKeywords(input.project_id, paginationOptions(input)),
+  );
+
+  registerTool(
+    registration,
+    "create_saved_keywords",
+    {
+      access: "write",
+      group: "saved-keywords",
+      description:
+        "Save keyword ideas without starting paid rank tracking. Keywords already tracked or saved are skipped.",
+      inputSchema: createSavedKeywordsInputSchema,
+      title: "Create saved keywords",
+    },
+    async (input) =>
+      client.createSavedKeywords(
+        input.project_id,
+        savedKeywordsPayload(input),
+        requestOptions(input),
+      ),
+  );
+
+  registerTool(
+    registration,
+    "delete_saved_keyword",
+    {
+      access: "write",
+      destructive: true,
+      group: "saved-keywords",
+      description: "Delete one saved keyword. Use only after the user confirms deletion.",
+      inputSchema: deleteSavedKeywordInputSchema,
+      title: "Delete saved keyword",
+    },
+    async (input) =>
+      client.deleteSavedKeyword(input.project_id, input.saved_keyword_id, requestOptions(input)),
   );
 
   registerTool(

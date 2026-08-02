@@ -25,6 +25,7 @@ export const BISIBILITY_MCP_TOOLSETS = [
   "projects",
   "providers",
   "rank-history",
+  "saved-keywords",
   "saved-views",
   "signals",
   "sitemaps",
@@ -52,7 +53,7 @@ const API_CREDENTIAL_PREFIXES = ["bsb_key_live_", "bsb_key_test_", "bsb_pat_live
 function readApiCredential(value: string | undefined) {
   const credential = cleanEnvValue(value);
   if (!credential) {
-    throw new Error("BISIBILITY_API_KEY is required to run the Bisibility MCP server.");
+    throw new Error("BISIBILITY_API_KEY is required to run the bisibility MCP server.");
   }
   if (!API_CREDENTIAL_PREFIXES.some((prefix) => credential.startsWith(prefix))) {
     throw new Error(

@@ -15,6 +15,6 @@ try {
   await runStdioServer();
 } catch (error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  console.error(`Bisibility MCP server failed to start: ${message}`);
+  console.error(`bisibility MCP server failed to start: ${message}`);
   process.exit(1);
 }
