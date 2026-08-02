@@ -3,7 +3,7 @@
   "name": "com.bisibility/mcp",
   "title": "bisibility",
   "description": "Track keyword rankings, research SEO opportunities, and manage bisibility projects with AI agents.",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "websiteUrl": "https://bisibility.com/docs/sdks/mcp",
   "repository": {
     "url": "https://github.com/CorgiCorner/bisibility-mcp",
@@ -20,7 +20,7 @@
     {
       "registryType": "npm",
       "identifier": "@bisibility/mcp",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"

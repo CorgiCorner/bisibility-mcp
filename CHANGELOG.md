@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.6.1 - 2026-08-02
+
+- Improved invalid `BISIBILITY_API_KEY` errors by showing the unsupported prefix and how to unset
+  or replace the credential.
+
 ## 0.6.0 - 2026-08-02
 
 - Added tools to list, save, and delete keyword ideas without starting rank tracking.

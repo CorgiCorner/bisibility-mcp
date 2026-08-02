@@ -50,14 +50,20 @@ export interface BisibilityMcpConfig {
 
 const API_CREDENTIAL_PREFIXES = ["bsb_key_live_", "bsb_key_test_", "bsb_pat_live_"] as const;
 
+function apiCredentialPrefix(value: string) {
+  return /^[a-z][a-z0-9]{1,7}_/i.exec(value)?.[0];
+}
+
 function readApiCredential(value: string | undefined) {
   const credential = cleanEnvValue(value);
   if (!credential) {
     throw new Error("BISIBILITY_API_KEY is required to run the bisibility MCP server.");
   }
   if (!API_CREDENTIAL_PREFIXES.some((prefix) => credential.startsWith(prefix))) {
+    const prefix = apiCredentialPrefix(credential);
+    const problem = prefix ? `unsupported prefix "${prefix}"` : "unsupported format";
     throw new Error(
-      "BISIBILITY_API_KEY must use bsb_key_live_, bsb_key_test_, or bsb_pat_live_. Legacy bsp_ and bsk_ credentials are not accepted.",
+      `Invalid API credential from BISIBILITY_API_KEY: ${problem}. Unset BISIBILITY_API_KEY or set a current credential.`,
     );
   }
   return credential;

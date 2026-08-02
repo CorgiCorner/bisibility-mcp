@@ -1,6 +1,6 @@
 {
   "name": "@bisibility/mcp",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "mcpName": "com.bisibility/mcp",
   "description": "MCP server for SEO rank tracking - give AI agents access to keyword rankings, SERP history, and rank checks.",
   "type": "module",

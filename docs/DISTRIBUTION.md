@@ -1,14 +1,14 @@
 # Distribution
 
 This page is the public source of truth for where the bisibility MCP server is available. Statuses
-were last verified on 2026-08-01.
+were last verified on 2026-08-02.
 
 | Channel | Status | Link | Version |
 | --- | --- | --- | --- |
-| npm | Published | [@bisibility/mcp](https://www.npmjs.com/package/@bisibility/mcp) | `0.6.0` |
-| Official MCP Registry | Published | [com.bisibility/mcp](https://registry.modelcontextprotocol.io/v0.1/servers?search=com.bisibility%2Fmcp) | `0.6.0` |
-| GitHub MCP Registry and VS Code | Pending downstream indexing | [GitHub MCP Registry](https://github.com/mcp) | `0.6.0` upstream |
-| Glama server | Listed, schema scan pending | [Open-source server](https://glama.ai/mcp/servers/CorgiCorner/bisibility-mcp) | `0.6.0` |
+| npm | Published | [@bisibility/mcp](https://www.npmjs.com/package/@bisibility/mcp) | `0.6.1` |
+| Official MCP Registry | Published | [com.bisibility/mcp](https://registry.modelcontextprotocol.io/v0.1/servers?search=com.bisibility%2Fmcp) | `0.6.1` |
+| GitHub MCP Registry and VS Code | Pending downstream indexing | [GitHub MCP Registry](https://github.com/mcp) | `0.6.1` upstream |
+| Glama server | Listed, schema scan pending | [Open-source server](https://glama.ai/mcp/servers/CorgiCorner/bisibility-mcp) | `0.6.1` |
 | Glama connector | Listed, unhealthy - rescan required | [Hosted connector](https://glama.ai/mcp/connectors/com.bisibility/mcp) | Hosted |
 | Smithery | Published | [bisibility/mcp](https://smithery.ai/servers/bisibility/mcp) | Hosted |
 | Docker MCP Catalog | Not submitted | [Docker MCP Registry](https://github.com/docker/mcp-registry) | - |

@@ -86,15 +86,17 @@ describe("bisibility MCP config", () => {
     );
   });
 
-  it.each(["bsp_live_old", "bsk_live_old", "unknown"])(
-    "rejects a legacy or unsupported API credential: %s",
-    (apiKey) => {
-      expect(() => readBisibilityMcpConfig({ BISIBILITY_API_KEY: apiKey })).toThrow(
-        "Legacy bsp_ and bsk_ credentials are not accepted.",
-      );
-      expect(bisibilityClientMock).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    ["bsp_live_old", 'unsupported prefix "bsp_"'],
+    ["bsk_live_old", 'unsupported prefix "bsk_"'],
+    ["unknown", "unsupported format"],
+  ])("explains how to replace an invalid API credential: %s", (apiKey, problem) => {
+    expect(() => readBisibilityMcpConfig({ BISIBILITY_API_KEY: apiKey })).toThrow(
+      `Invalid API credential from BISIBILITY_API_KEY: ${problem}. Unset BISIBILITY_API_KEY or set a current credential.`,
+    );
+    expect(() => readBisibilityMcpConfig({ BISIBILITY_API_KEY: apiKey })).not.toThrow(apiKey);
+    expect(bisibilityClientMock).not.toHaveBeenCalled();
+  });
 
   it("rejects an empty base URL", () => {
     expect(() =>
