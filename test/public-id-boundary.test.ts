@@ -97,6 +97,16 @@ describe("public ID v3 MCP boundary", () => {
       }),
     ).toMatchObject({ target_ids: [publicId("kw")] });
 
+    expect(
+      createAlertRuleInputSchema.parse({
+        condition_type: "threshold",
+        name: "Tag threshold",
+        project_id: publicId("prj"),
+        target_ids: [publicId("tag")],
+        target_type: "tag",
+      }),
+    ).toMatchObject({ target_ids: [publicId("tag")] });
+
     for (const target of [publicId("tag"), "kw_1", publicId("prj")]) {
       expect(() =>
         createAlertRuleInputSchema.parse({

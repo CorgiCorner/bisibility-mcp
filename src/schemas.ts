@@ -981,6 +981,16 @@ const alertRuleInputShape = {
   top_n: z.number().int().min(1).max(100).nullable().optional(),
 };
 
+function alertTargetPrefix(targetType: z.output<typeof alertTargetTypeInput> | undefined) {
+  if (targetType === "keyword") {
+    return "kw" as const;
+  }
+  if (targetType === "tag") {
+    return "tag" as const;
+  }
+  return null;
+}
+
 function validateAlertTargets(
   value: {
     target_ids?: string[] | undefined;
@@ -990,8 +1000,7 @@ function validateAlertTargets(
 ) {
   if (!value.target_ids?.length) return;
 
-  const expectedPrefix =
-    value.target_type === "keyword" ? "kw" : value.target_type === "tag" ? "tag" : null;
+  const expectedPrefix = alertTargetPrefix(value.target_type);
   if (!expectedPrefix) {
     ctx.addIssue({
       code: "custom",

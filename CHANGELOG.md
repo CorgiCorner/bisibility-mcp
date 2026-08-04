@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.6.2 - 2026-08-04
+
+- Redacted MCP startup diagnostics so invalid credentials and environment values are not written
+  to stderr.
+- Updated runtime dependencies to fix high-severity URL parsing and IP address classification
+  advisories.
+
 ## 0.6.1 - 2026-08-02
 
 - Improved invalid `BISIBILITY_API_KEY` errors by showing the unsupported prefix and how to unset
