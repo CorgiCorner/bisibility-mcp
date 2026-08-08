@@ -44,8 +44,8 @@ function atPath(value: unknown, path: string[]) {
   }, value);
 }
 
-describe("public ID v3 MCP boundary", () => {
-  it("accepts every canonical prefix with an unknown strict v3 suffix", () => {
+describe("public ID MCP boundary", () => {
+  it("accepts every canonical prefix with an unknown well-formed suffix", () => {
     for (const prefix of publicIdPrefixes) {
       const value = `${prefix}_${suffix}`;
       expect(publicIdInput(prefix).parse(value)).toBe(value);
@@ -53,7 +53,7 @@ describe("public ID v3 MCP boundary", () => {
   });
 
   it.each(["prj_1", "prj_A000000000000000000000000", `prj_a${"0".repeat(22)}`, "cuidraw"])(
-    "rejects legacy, mixed-case, short, and raw IDs: %s",
+    "rejects malformed, mixed-case, short, and wrong-format IDs: %s",
     (value) => {
       expect(() => publicIdInput("prj").parse(value)).toThrow();
     },
@@ -63,7 +63,7 @@ describe("public ID v3 MCP boundary", () => {
     const projectId = publicId("prj");
 
     expect(parsePublicId(projectId, "prj")).toBe(projectId);
-    expect(() => assertPublicId(publicId("kw"), "prj")).toThrow("Expected a prj_ public ID v3.");
+    expect(() => assertPublicId(publicId("kw"), "prj")).toThrow("Expected a prj_ public ID.");
   });
 
   it("rejects wrong prefixes in every typed tool context", () => {

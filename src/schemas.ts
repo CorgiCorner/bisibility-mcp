@@ -54,7 +54,7 @@ export function assertPublicId<Prefix extends PublicIdPrefix>(
   prefix: Prefix,
 ): asserts value is PublicIdForPrefix<Prefix> {
   if (!matchesPublicId(value, prefix)) {
-    throw new Error(`Expected a ${prefix}_ public ID v3.`);
+    throw new Error(`Expected a ${prefix}_ public ID.`);
   }
 }
 
@@ -71,7 +71,7 @@ export const publicIdInput = <Prefix extends PublicIdPrefix>(prefix: Prefix) =>
     .string()
     .trim()
     .regex(publicIdPattern(prefix), {
-      message: `Expected a ${prefix}_ public ID v3.`,
+      message: `Expected a ${prefix}_ public ID.`,
     })
     .transform((value) => parsePublicId(value, prefix));
 
@@ -1014,7 +1014,7 @@ function validateAlertTargets(
     if (!matchesPublicId(targetId, expectedPrefix)) {
       ctx.addIssue({
         code: "custom",
-        message: `Expected a ${expectedPrefix}_ public ID v3.`,
+        message: `Expected a ${expectedPrefix}_ public ID.`,
         path: ["target_ids", index],
       });
     }

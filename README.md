@@ -83,13 +83,13 @@ installs, set it to your API v1 root, for example `https://rank.example/api/v1`.
 token (`bsb_pat_live_...`). Set optional `BISIBILITY_PROJECT_ID` as the default
 `X-Bisibility-Project` selector for project-implicit PAT tools; a tool's
 optional `project_id` argument overrides it for that call. Every resource ID
-accepted by the MCP server, including `BISIBILITY_PROJECT_ID`, must use public
-ID v3: a canonical lowercase prefix plus `_` and a 24-character lowercase
-CUID2 suffix, for example `prj_a1b2c3d4e5f6g7h8j9k0m2n3`. Raw database IDs,
-legacy IDs, mixed-case IDs, and wrong resource prefixes are rejected. Location
-selection uses the returned `location_key`, never a location ID.
+accepted by the MCP server, including `BISIBILITY_PROJECT_ID`, must use the
+current typed public ID format: a canonical lowercase prefix plus `_` and a
+24-character lowercase suffix, for example `prj_a1b2c3d4e5f6g7h8j9k0m2n3`.
+Malformed IDs, mixed-case IDs, and wrong resource prefixes are rejected.
+Location selection uses the returned `location_key`, never a location ID.
 
-The server consumes the public ID v3 contract from the published
+The server consumes the public ID contract from the published
 `@bisibility/sdk` package. Do not replace it with a local SDK link.
 
 `BISIBILITY_MCP_READ_ONLY` accepts `1`, `true`, `yes`, or `on`, ignoring case. When enabled,

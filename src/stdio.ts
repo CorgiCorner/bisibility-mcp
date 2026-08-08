@@ -25,7 +25,7 @@ function startupFailureReason(error: unknown) {
   if (error.message === "BISIBILITY_BASE_URL cannot be empty.") {
     return "empty_base_url";
   }
-  if (error.message === "BISIBILITY_PROJECT_ID must be a prj_ public ID v3.") {
+  if (error.message === "BISIBILITY_PROJECT_ID must be a prj_ public ID.") {
     return "invalid_project_id";
   }
   if (error.message.startsWith("Unknown BISIBILITY_MCP_TOOLSETS value")) {

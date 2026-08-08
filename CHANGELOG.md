@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.6.3 - 2026-08-08
+
+- Updated public ID documentation and validation errors to describe the current typed ID format
+  without retired migration-version terminology.
+
 ## 0.6.2 - 2026-08-04
 
 - Redacted MCP startup diagnostics so invalid credentials and environment values are not written

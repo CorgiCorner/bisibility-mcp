@@ -126,7 +126,7 @@ export function readBisibilityMcpConfig(env: BisibilityMcpEnv = process.env): Bi
   if (projectId) {
     const parsedProjectId = projectIdInput.safeParse(projectId);
     if (!parsedProjectId.success) {
-      throw new Error("BISIBILITY_PROJECT_ID must be a prj_ public ID v3.");
+      throw new Error("BISIBILITY_PROJECT_ID must be a prj_ public ID.");
     }
     return { apiKey, baseUrl, projectId: parsedProjectId.data };
   }

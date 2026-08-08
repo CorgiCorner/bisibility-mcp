@@ -108,14 +108,14 @@ describe("bisibility MCP config", () => {
   });
 
   it.each(["prj_1", "kw_a000000000000000000000000", "prj_A000000000000000000000000"])(
-    "rejects a non-v3 project selector: %s",
+    "rejects a malformed project selector: %s",
     (value) => {
       expect(() =>
         readBisibilityMcpConfig({
           BISIBILITY_API_KEY: "bsb_pat_live_1",
           BISIBILITY_PROJECT_ID: value,
         }),
-      ).toThrow("BISIBILITY_PROJECT_ID must be a prj_ public ID v3.");
+      ).toThrow("BISIBILITY_PROJECT_ID must be a prj_ public ID.");
     },
   );
 
