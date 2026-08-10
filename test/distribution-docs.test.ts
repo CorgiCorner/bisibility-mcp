@@ -10,14 +10,18 @@ const packageManifest = JSON.parse(readFileSync("package.json", "utf8")) as Pack
 const readme = readFileSync("README.md", "utf8");
 
 describe("public distribution documentation", () => {
-  it("keeps versioned canonical channels aligned with the package release", () => {
-    const version = `\`${packageManifest.version}\``;
+  it("keeps release targets pending until canonical channels are verified", () => {
+    const publishedVersion = "`0.6.3`";
+    const targetVersion = `\`${packageManifest.version}\``;
 
     expect(distribution).toContain(
-      `| npm | Published | [@bisibility/mcp](https://www.npmjs.com/package/@bisibility/mcp) | ${version} |`,
+      `| npm | Published ${publishedVersion}; ${targetVersion} pending verification | [@bisibility/mcp](https://www.npmjs.com/package/@bisibility/mcp) | ${publishedVersion} verified, ${targetVersion} target |`,
     );
     expect(distribution).toContain(
-      `| Official MCP Registry | Published | [com.bisibility/mcp](https://registry.modelcontextprotocol.io/v0.1/servers?search=com.bisibility%2Fmcp) | ${version} |`,
+      `| Official MCP Registry | Published ${publishedVersion}; ${targetVersion} pending downstream indexing | [com.bisibility/mcp](https://registry.modelcontextprotocol.io/v0.1/servers?search=com.bisibility%2Fmcp) | ${publishedVersion} verified, ${targetVersion} target |`,
+    );
+    expect(distribution).toContain(
+      "| Docker MCP Catalog | Submitted - under review | [docker/mcp-registry#4603](https://github.com/docker/mcp-registry/pull/4603) | `0.6.0` |",
     );
     expect(distribution).toContain(
       "| Smithery | Published | [bisibility/mcp](https://smithery.ai/servers/bisibility/mcp) | Hosted |",

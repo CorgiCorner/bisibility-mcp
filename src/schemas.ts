@@ -1166,7 +1166,10 @@ export const providerConnectionInputSchema = z
     credentials: providerCredentialsInputSchema.optional(),
     enabled: z.boolean().optional(),
     login: providerSecretInput,
-    primary: z.boolean().optional(),
+    primary: z
+      .boolean()
+      .optional()
+      .describe("Deprecated compatibility alias: true promotes priority 0; false is a no-op."),
     priority: z.number().int().min(0).max(1000).optional(),
     project_id: projectIdInput,
     provider_id: providerIdInput,
@@ -1188,7 +1191,10 @@ export const updateProviderSettingsInputSchema = z
   .object({
     ...requestOptionsInput,
     enabled: z.boolean().optional(),
-    primary: z.boolean().optional(),
+    primary: z
+      .boolean()
+      .optional()
+      .describe("Deprecated compatibility alias: true promotes priority 0; false is a no-op."),
     priority: z.number().int().min(0).max(1000).optional(),
     project_id: projectIdInput,
     provider_id: providerIdInput,
@@ -1244,7 +1250,10 @@ export const setProviderPriorityInputSchema = z
 export const setPrimaryProviderInputSchema = z
   .object({
     ...requestOptionsInput,
-    primary: z.boolean().optional(),
+    primary: z
+      .boolean()
+      .optional()
+      .describe("Deprecated compatibility alias: true promotes priority 0; false is a no-op."),
     project_id: projectIdInput,
     provider_id: providerIdInput,
   })

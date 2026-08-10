@@ -48,7 +48,7 @@ npm run build
 The SDK is consumed from the npm registry:
 
 ```json
-"@bisibility/sdk": "^0.6.0"
+"@bisibility/sdk": "^0.8.0"
 ```
 
 ### MCPB bundle
@@ -245,12 +245,12 @@ switch transports without rewriting tool calls.
 - `update_team_member_role`
 - `remove_team_member`
 - `list_providers`
-- `connect_provider`
+- `connect_provider` (`primary: true` is a legacy alias for priority `0`)
 - `test_provider_connection`
 - `update_provider_settings`
 - `set_provider_enabled`
 - `set_provider_priority`
-- `set_primary_provider`
+- `set_primary_provider` (legacy: true promotes priority `0`; false is a no-op)
 - `disconnect_provider`
 - `list_saved_keywords`
 - `create_saved_keywords`

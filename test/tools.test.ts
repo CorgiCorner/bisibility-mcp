@@ -340,6 +340,30 @@ describe("registerBisibilityTools", () => {
     expect(missing).toEqual([]);
   });
 
+  it("describes primary aliases as legacy priority promotion", () => {
+    const { configs } = createToolHarness();
+    const primaryDescription =
+      "Deprecated compatibility alias: true promotes priority 0; false is a no-op.";
+
+    for (const name of ["connect_provider", "update_provider_settings", "set_primary_provider"]) {
+      const config = configs.get(name);
+      const schema = z.toJSONSchema(z.object(config?.inputSchema as z.ZodRawShape), {
+        io: "input",
+      }) as Record<string, unknown>;
+      const primary = (schema.properties as Record<string, Record<string, unknown>>).primary;
+
+      expect(primary).toMatchObject({ description: primaryDescription });
+    }
+
+    expect(configs.get("connect_provider")?.description).toContain("primary=true alias");
+    expect(configs.get("update_provider_settings")?.description).toContain(
+      "primary is a deprecated compatibility alias",
+    );
+    expect(configs.get("set_primary_provider")?.description).toContain(
+      "Deprecated compatibility tool",
+    );
+  });
+
   it("registers only read tools in read-only mode", () => {
     const { tools } = createToolHarness({ readOnly: true });
     const mutatingPrefixes = [

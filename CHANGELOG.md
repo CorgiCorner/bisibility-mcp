@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.7.0 - 2026-08-10
+
+- Preserved primary-provider compatibility inputs: `primary: true` promotes priority `0`, while
+  `primary: false` is a legacy no-op. New tool calls should use `priority`.
+
 ## 0.6.3 - 2026-08-08
 
 - Updated public ID documentation and validation errors to describe the current typed ID format

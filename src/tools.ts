@@ -1957,7 +1957,8 @@ export function registerBisibilityTools(
       description:
         "Connect or update credentials for a project provider. SERP providers are dataforseo " +
         "and serpapi; analytics providers are ga4, gsc, and plausible. Self-hosted providers " +
-        "such as Plausible accept an optional credentials.endpoint base URL.",
+        "such as Plausible accept an optional credentials.endpoint base URL. Use priority for " +
+        "ordering; the deprecated primary=true alias promotes priority 0 and primary=false is a no-op.",
       inputSchema: providerConnectionInputSchema,
       title: "Connect provider",
     },
@@ -1996,7 +1997,9 @@ export function registerBisibilityTools(
     {
       access: "write",
       group: "providers",
-      description: "Update provider settings such as enabled state, priority, or primary status.",
+      description:
+        "Update provider settings such as enabled state or priority. primary is a deprecated " +
+        "compatibility alias: true promotes priority 0 and false is a no-op.",
       inputSchema: updateProviderSettingsInputSchema,
       title: "Update provider settings",
     },
@@ -2053,7 +2056,9 @@ export function registerBisibilityTools(
     {
       access: "write",
       group: "providers",
-      description: "Set or clear a provider as the primary project provider.",
+      description:
+        "Deprecated compatibility tool. true promotes priority 0; false is a legacy no-op. " +
+        "Use set_provider_priority for new calls.",
       inputSchema: setPrimaryProviderInputSchema,
       title: "Set primary provider",
     },

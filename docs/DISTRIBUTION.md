@@ -2,11 +2,12 @@
 
 This page is the public source of truth for where the bisibility MCP server is available. Statuses
 were last verified on 2026-08-08.
+Version `0.7.0` is a release target pending verification after publication.
 
 | Channel | Status | Link | Version |
 | --- | --- | --- | --- |
-| npm | Published | [@bisibility/mcp](https://www.npmjs.com/package/@bisibility/mcp) | `0.6.3` |
-| Official MCP Registry | Published | [com.bisibility/mcp](https://registry.modelcontextprotocol.io/v0.1/servers?search=com.bisibility%2Fmcp) | `0.6.3` |
+| npm | Published `0.6.3`; `0.7.0` pending verification | [@bisibility/mcp](https://www.npmjs.com/package/@bisibility/mcp) | `0.6.3` verified, `0.7.0` target |
+| Official MCP Registry | Published `0.6.3`; `0.7.0` pending downstream indexing | [com.bisibility/mcp](https://registry.modelcontextprotocol.io/v0.1/servers?search=com.bisibility%2Fmcp) | `0.6.3` verified, `0.7.0` target |
 | GitHub MCP Registry and VS Code | Pending downstream indexing | [GitHub MCP Registry](https://github.com/mcp) | `0.6.3` upstream |
 | Glama server | Listed, schema scan pending | [Open-source server](https://glama.ai/mcp/servers/CorgiCorner/bisibility-mcp) | `0.6.3` |
 | Glama connector | Listed, unhealthy - rescan required | [Hosted connector](https://glama.ai/mcp/connectors/com.bisibility/mcp) | Hosted |
