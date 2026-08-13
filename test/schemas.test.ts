@@ -4,6 +4,7 @@ import { publicId } from "./fixtures.js";
 
 import {
   analyzeBacklinksInputSchema,
+  analyzeDomainOverviewInputSchema,
   costEstimateFrequencyInput,
   createSavedViewInputSchema,
   exportRankHistoryInputSchema,
@@ -13,6 +14,9 @@ import {
   listRankedKeywordSuggestionsInputSchema,
   listSignalsInputSchema,
   listTrafficSnapshotsInputSchema,
+  loadDomainOverviewHistoryInputSchema,
+  loadDomainOverviewKeywordsInputSchema,
+  loadDomainOverviewPagesInputSchema,
   loadMoreBacklinkRowsInputSchema,
   locationKeyInput,
   providerCredentialsInputSchema,
@@ -362,6 +366,114 @@ describe("tool input schemas", () => {
 
   it("describes every backlinks input field", () => {
     for (const schema of [analyzeBacklinksInputSchema, loadMoreBacklinkRowsInputSchema]) {
+      expect(Object.values(schema.shape).every((field) => field.description)).toBe(true);
+    }
+  });
+
+  it("requires an explicit Domain Overview cost cap for every analysis", () => {
+    const common = {
+      language_code: "en",
+      location_code: 2840,
+      project_id: publicId("prj"),
+      target: "example.com",
+    };
+
+    expect(
+      analyzeDomainOverviewInputSchema.parse({
+        ...common,
+        estimate_only: true,
+        max_cost_cents: 0,
+      }),
+    ).toMatchObject({ estimate_only: true, max_cost_cents: 0 });
+    expect(() => analyzeDomainOverviewInputSchema.parse(common)).toThrow();
+    expect(() =>
+      analyzeDomainOverviewInputSchema.parse({ ...common, estimate_only: true }),
+    ).toThrow();
+    expect(() =>
+      analyzeDomainOverviewInputSchema.parse({
+        ...common,
+        estimate_only: false,
+        max_cost_cents: -1,
+      }),
+    ).toThrow();
+  });
+
+  it("validates strict Domain Overview market, scope, and row limits", () => {
+    const common = {
+      fresh: true,
+      language_code: "en",
+      location_code: 2840,
+      max_cost_cents: 0,
+      project_id: publicId("prj"),
+      scope_override: "subdomain" as const,
+      target: "blog.example.com",
+    };
+
+    expect(
+      analyzeDomainOverviewInputSchema.parse({
+        ...common,
+        keyword_limit: 100,
+        page_limit: 1000,
+      }),
+    ).toMatchObject({ scope_override: "subdomain" });
+    expect(loadDomainOverviewHistoryInputSchema.parse(common)).toMatchObject({
+      max_cost_cents: 0,
+    });
+    expect(
+      loadDomainOverviewKeywordsInputSchema.parse({ ...common, limit: 100, offset: 0 }),
+    ).toMatchObject({ limit: 100 });
+    expect(() =>
+      loadDomainOverviewKeywordsInputSchema.parse({ ...common, limit: 101, offset: 0 }),
+    ).toThrow();
+    expect(
+      loadDomainOverviewPagesInputSchema.parse({ ...common, limit: 1000, offset: 0 }),
+    ).toMatchObject({ limit: 1000 });
+    expect(() =>
+      loadDomainOverviewPagesInputSchema.parse({ ...common, limit: 1001, offset: 0 }),
+    ).toThrow();
+    for (const schema of [
+      loadDomainOverviewKeywordsInputSchema,
+      loadDomainOverviewPagesInputSchema,
+    ]) {
+      expect(() =>
+        schema.parse({
+          language_code: "en",
+          limit: 1,
+          location_code: 2840,
+          offset: 0,
+          project_id: publicId("prj"),
+          target: "example.com",
+        }),
+      ).toThrow();
+      expect(() => schema.parse({ ...common, limit: 0, offset: 0 })).toThrow();
+      expect(() => schema.parse({ ...common, limit: 1, offset: -1 })).toThrow();
+      expect(() => schema.parse({ ...common, limit: 1, offset: 0, unexpected: true })).toThrow();
+    }
+
+    expect(() => analyzeDomainOverviewInputSchema.parse({ ...common, location_code: 0 })).toThrow();
+    expect(() =>
+      loadDomainOverviewHistoryInputSchema.parse({
+        language_code: "en",
+        location_code: 2840,
+        project_id: publicId("prj"),
+        target: "example.com",
+      }),
+    ).toThrow();
+    expect(() =>
+      analyzeDomainOverviewInputSchema.parse({ ...common, scope_override: "site" }),
+    ).toThrow();
+    expect(() =>
+      analyzeDomainOverviewInputSchema.parse({ ...common, language_code: "e" }),
+    ).toThrow();
+  });
+
+  it("describes every Domain Overview input field", () => {
+    for (const schema of [
+      analyzeDomainOverviewInputSchema,
+      loadDomainOverviewHistoryInputSchema,
+      loadDomainOverviewKeywordsInputSchema,
+      loadDomainOverviewPagesInputSchema,
+    ]) {
       expect(Object.values(schema.shape).every((field) => field.description)).toBe(true);
     }
   });

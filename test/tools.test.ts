@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it, vi } from "vitest";
 import * as z from "zod/v4";
 
@@ -8,7 +10,7 @@ import type {
   BisibilityToolClient,
   RegisterBisibilityToolsOptions,
 } from "../src/index.js";
-import { registerBisibilityTools } from "../src/index.js";
+import { createBisibilityMcpServer, registerBisibilityTools } from "../src/index.js";
 import {
   activeMigrationToken,
   alertRule,
@@ -69,6 +71,10 @@ const expectedToolNames = [
   "research_keywords",
   "analyze_backlinks",
   "load_more_backlink_rows",
+  "analyze_domain_overview",
+  "load_domain_overview_history",
+  "load_domain_overview_keywords",
+  "load_domain_overview_pages",
   "get_keyword_metrics",
   "add_keywords",
   "get_keyword",
@@ -143,6 +149,7 @@ function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeo
     addCompetitor: vi.fn(),
     addKeywords: vi.fn(),
     analyzeBacklinks: vi.fn(),
+    analyzeDomainOverview: vi.fn(),
     bulkUpdateKeywords: vi.fn(),
     connectProvider: vi.fn(),
     createAlertRule: vi.fn(),
@@ -196,6 +203,9 @@ function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeo
     listTrafficSnapshots: vi.fn(),
     listTriggeredAlerts: vi.fn(),
     listWebhooks: vi.fn(),
+    loadDomainOverviewHistory: vi.fn(),
+    loadDomainOverviewKeywords: vi.fn(),
+    loadDomainOverviewPages: vi.fn(),
     loadMoreBacklinkRows: vi.fn(),
     markProjectAlertsRead: vi.fn(),
     mintMigrationToken: vi.fn(),
@@ -306,6 +316,12 @@ function missingRequiredDescriptions(schema: Record<string, unknown>, path: stri
   return missing;
 }
 
+function advertisedJsonSchema(inputSchema: object) {
+  const schema =
+    inputSchema instanceof z.ZodObject ? inputSchema : z.object(inputSchema as z.ZodRawShape);
+  return z.toJSONSchema(schema, { io: "input" }) as Record<string, unknown>;
+}
+
 describe("registerBisibilityTools", () => {
   it("registers the bisibility MCP tool surface", () => {
     const { configs, server, tools } = createToolHarness();
@@ -320,10 +336,45 @@ describe("registerBisibilityTools", () => {
     expect(configs.get("run_rank_check")?.description).toContain("explicit user approval");
   });
 
+  it("publishes closed Domain Overview schemas through tools/list", async () => {
+    const server = createBisibilityMcpServer({
+      client: createClientMock() as never,
+      readOnly: false,
+      toolsets: ["domain-overview"],
+    });
+    const client = new Client({ name: "schema-test", version: "0.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+    try {
+      await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+      const listed = await client.listTools();
+      const tools = new Map(listed.tools.map((tool) => [tool.name, tool.inputSchema]));
+      const analyze = tools.get("analyze_domain_overview");
+      const keywords = tools.get("load_domain_overview_keywords");
+      const pages = tools.get("load_domain_overview_pages");
+
+      expect(analyze).toMatchObject({
+        additionalProperties: false,
+        required: expect.arrayContaining(["max_cost_cents"]),
+      });
+      expect(keywords).toMatchObject({
+        additionalProperties: false,
+        properties: { limit: { maximum: 100 } },
+      });
+      expect(pages).toMatchObject({
+        additionalProperties: false,
+        properties: { limit: { maximum: 1000 } },
+      });
+    } finally {
+      await client.close().catch(() => undefined);
+      await server.close().catch(() => undefined);
+    }
+  });
+
   it("uses the same unprefixed snake_case names as the built-in HTTP server", () => {
     const { tools } = createToolHarness();
 
-    expect([...tools]).toHaveLength(87);
+    expect([...tools]).toHaveLength(91);
     expect([...tools.keys()].every((name) => /^[a-z][a-z0-9_]*$/.test(name))).toBe(true);
     expect([...tools.keys()].some((name) => name.startsWith("bisibility_"))).toBe(false);
   });
@@ -331,10 +382,7 @@ describe("registerBisibilityTools", () => {
   it("describes every required input in the advertised JSON schema", () => {
     const { configs } = createToolHarness();
     const missing = [...configs].flatMap(([name, config]) => {
-      const schema = z.toJSONSchema(z.object(config.inputSchema as z.ZodRawShape), {
-        io: "input",
-      });
-      return missingRequiredDescriptions(schema as Record<string, unknown>, name);
+      return missingRequiredDescriptions(advertisedJsonSchema(config.inputSchema), name);
     });
 
     expect(missing).toEqual([]);
@@ -347,9 +395,7 @@ describe("registerBisibilityTools", () => {
 
     for (const name of ["connect_provider", "update_provider_settings", "set_primary_provider"]) {
       const config = configs.get(name);
-      const schema = z.toJSONSchema(z.object(config?.inputSchema as z.ZodRawShape), {
-        io: "input",
-      }) as Record<string, unknown>;
+      const schema = advertisedJsonSchema(config?.inputSchema as object);
       const primary = (schema.properties as Record<string, Record<string, unknown>>).primary;
 
       expect(primary).toMatchObject({ description: primaryDescription });
@@ -395,12 +441,27 @@ describe("registerBisibilityTools", () => {
     ).toEqual([]);
     expect(tools.has("research_keywords")).toBe(false);
     expect(tools.has("get_keyword_metrics")).toBe(false);
+    expect(tools.has("analyze_domain_overview")).toBe(false);
+    expect(tools.has("load_domain_overview_history")).toBe(false);
+    expect(tools.has("load_domain_overview_keywords")).toBe(false);
+    expect(tools.has("load_domain_overview_pages")).toBe(false);
   });
 
   it("registers only tools from selected API-domain toolsets", () => {
     const { tools } = createToolHarness({ toolsets: ["rank-history"] });
 
     expect([...tools.keys()]).toEqual(["get_rank_history", "export_rank_history"]);
+  });
+
+  it("registers the Domain Overview toolset independently", () => {
+    const { tools } = createToolHarness({ toolsets: ["domain-overview"] });
+
+    expect([...tools.keys()]).toEqual([
+      "analyze_domain_overview",
+      "load_domain_overview_history",
+      "load_domain_overview_keywords",
+      "load_domain_overview_pages",
+    ]);
   });
 
   it("composes read-only mode with toolset filtering", () => {
@@ -452,6 +513,16 @@ describe("registerBisibilityTools", () => {
       openWorldHint: true,
       readOnlyHint: false,
     });
+    expect(configs.get("analyze_domain_overview")?.annotations).toEqual({
+      destructiveHint: false,
+      openWorldHint: true,
+      readOnlyHint: false,
+    });
+    expect(configs.get("load_domain_overview_history")?.annotations).toEqual({
+      destructiveHint: false,
+      openWorldHint: true,
+      readOnlyHint: false,
+    });
   });
 
   it("documents every registered tool in the README", () => {
@@ -461,6 +532,18 @@ describe("registerBisibilityTools", () => {
     for (const name of tools.keys()) {
       expect(readme, `README.md is missing tool ${name}`).toContain(`\`${name}\``);
     }
+  });
+
+  it("documents the mandatory Domain Overview cap consistently", () => {
+    const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+
+    expect(readme).toContain(
+      "Every Domain Overview call requires an explicit nonnegative integer `max_cost_cents`.",
+    );
+    expect(readme).toContain(
+      "`analyze_domain_overview` with `estimate_only: true` and\n`max_cost_cents: 0`",
+    );
+    expect(readme).not.toContain("Every non-estimate Domain Overview call requires");
   });
 
   it("returns JSON text content and structured content", async () => {
@@ -1108,6 +1191,205 @@ describe("registerBisibilityTools", () => {
     });
     expect(client.analyzeBacklinks).not.toHaveBeenCalled();
     expect(client.loadMoreBacklinkRows).not.toHaveBeenCalled();
+  });
+
+  it("delegates Domain Overview tools with only defined camel-case SDK options", async () => {
+    const { callTool, client, configs } = createToolHarness();
+    const estimate = dataResponse({
+      cached: false,
+      estimate: true,
+      estimated_cost_cents: 6,
+      fresh_estimated_cost_cents: 6,
+      history_estimated_cost_cents: 12,
+      history_mode: "lazy",
+      keyword_page_estimated_cost_cents: 2,
+      language_code: "en",
+      location_code: 2840,
+      page_page_estimated_cost_cents: 2,
+      provider: "dataforseo",
+      scope: "root",
+      target: "example.com",
+    });
+    const history = dataResponse({
+      cached: true,
+      cost_cents: 0,
+      data: [],
+      fetched_at: "2026-08-13T00:00:00.000Z",
+    });
+    const keywords = dataResponse({
+      cached: false,
+      cost_cents: 2,
+      data: { cost_cents: 2, rows: [], total_count: 0 },
+      fetched_at: "2026-08-13T00:00:00.000Z",
+    });
+    const pages = dataResponse({
+      cached: false,
+      cost_cents: 2,
+      data: { cost_cents: 2, rows: [], total_count: 0 },
+      fetched_at: "2026-08-13T00:00:00.000Z",
+    });
+    client.analyzeDomainOverview.mockResolvedValue(estimate);
+    client.loadDomainOverviewHistory.mockResolvedValue(history);
+    client.loadDomainOverviewKeywords.mockResolvedValue(keywords);
+    client.loadDomainOverviewPages.mockResolvedValue(pages);
+
+    const common = {
+      fresh: true,
+      language_code: "en",
+      location_code: 2840,
+      project_id: publicId("prj"),
+      scope_override: "subdomain",
+      target: "blog.example.com",
+    };
+    await expect(
+      callTool("analyze_domain_overview", {
+        ...common,
+        estimate_only: true,
+        keyword_limit: 50,
+        max_cost_cents: 0,
+        page_limit: 75,
+      }),
+    ).resolves.toMatchObject({ structuredContent: estimate });
+    await expect(
+      callTool("analyze_domain_overview", {
+        language_code: "en",
+        location_code: 2840,
+        max_cost_cents: 6,
+        project_id: publicId("prj"),
+        target: "example.com",
+      }),
+    ).resolves.toMatchObject({ structuredContent: estimate });
+    await expect(
+      callTool("load_domain_overview_history", { ...common, max_cost_cents: 0 }),
+    ).resolves.toMatchObject({ structuredContent: history });
+    await expect(
+      callTool("load_domain_overview_keywords", {
+        ...common,
+        limit: 100,
+        max_cost_cents: 3,
+        offset: 200,
+      }),
+    ).resolves.toMatchObject({ structuredContent: keywords });
+    await expect(
+      callTool("load_domain_overview_pages", {
+        ...common,
+        limit: 50,
+        max_cost_cents: 4,
+        offset: 100,
+      }),
+    ).resolves.toMatchObject({ structuredContent: pages });
+
+    expect(client.analyzeDomainOverview).toHaveBeenNthCalledWith(1, publicId("prj"), {
+      estimateOnly: true,
+      fresh: true,
+      keywordLimit: 50,
+      languageCode: "en",
+      locationCode: 2840,
+      maxCostCents: 0,
+      pageLimit: 75,
+      scopeOverride: "subdomain",
+      target: "blog.example.com",
+    });
+    expect(client.analyzeDomainOverview).toHaveBeenNthCalledWith(2, publicId("prj"), {
+      estimateOnly: false,
+      languageCode: "en",
+      locationCode: 2840,
+      maxCostCents: 6,
+      target: "example.com",
+    });
+    expect(client.loadDomainOverviewHistory).toHaveBeenCalledWith(publicId("prj"), {
+      fresh: true,
+      languageCode: "en",
+      locationCode: 2840,
+      maxCostCents: 0,
+      scopeOverride: "subdomain",
+      target: "blog.example.com",
+    });
+    expect(client.loadDomainOverviewKeywords).toHaveBeenCalledWith(publicId("prj"), {
+      fresh: true,
+      languageCode: "en",
+      limit: 100,
+      locationCode: 2840,
+      maxCostCents: 3,
+      offset: 200,
+      scopeOverride: "subdomain",
+      target: "blog.example.com",
+    });
+    expect(client.loadDomainOverviewPages).toHaveBeenCalledWith(publicId("prj"), {
+      fresh: true,
+      languageCode: "en",
+      limit: 50,
+      locationCode: 2840,
+      maxCostCents: 4,
+      offset: 100,
+      scopeOverride: "subdomain",
+      target: "blog.example.com",
+    });
+    expect(configs.get("analyze_domain_overview")?.description).toContain("estimate_only=true");
+    expect(configs.get("analyze_domain_overview")?.description).toContain("max_cost_cents");
+    expect(configs.get("load_domain_overview_history")?.description).toContain("snapshot_expired");
+  });
+
+  it.each([undefined, true])(
+    "rejects uncapped Domain Overview analysis before calling the SDK (estimate_only=%s)",
+    async (estimateOnly) => {
+      const { callTool, client } = createToolHarness();
+
+      const result = await callTool("analyze_domain_overview", {
+        ...(estimateOnly === undefined ? {} : { estimate_only: estimateOnly }),
+        language_code: "en",
+        location_code: 2840,
+        project_id: publicId("prj"),
+        target: "example.com",
+      });
+
+      expect(result.isError).toBe(true);
+      expect(parsedContent(result)).toMatchObject({
+        error: { issues: expect.any(Array), name: "ZodError" },
+      });
+      expect(client.analyzeDomainOverview).not.toHaveBeenCalled();
+    },
+  );
+
+  it("preserves Domain Overview problem cost details in MCP error results", async () => {
+    const { callTool, client } = createToolHarness();
+    const problem = {
+      detail: "The provider budget was exhausted.",
+      errors: { cost_cents: 4, reason: "budget_exhausted", reset_at: 1_786_579_200 },
+      status: 429,
+      title: "Budget exhausted",
+      type: "https://bisibility.com/problems/budget-exhausted",
+    };
+    const error = Object.assign(new Error(problem.detail), { problem, status: problem.status });
+    client.loadDomainOverviewPages.mockRejectedValueOnce(error);
+
+    const result = await callTool("load_domain_overview_pages", {
+      language_code: "en",
+      limit: 100,
+      location_code: 2840,
+      max_cost_cents: 4,
+      offset: 0,
+      project_id: publicId("prj"),
+      target: "example.com",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({
+      error: {
+        problem: {
+          errors: { cost_cents: 4, reason: "budget_exhausted", reset_at: 1_786_579_200 },
+        },
+        status: 429,
+      },
+    });
+    expect(parsedContent(result)).toMatchObject({
+      error: {
+        problem: {
+          errors: { cost_cents: 4, reason: "budget_exhausted", reset_at: 1_786_579_200 },
+        },
+        status: 429,
+      },
+    });
   });
 
   it("hydrates nullable metrics with per-keyword cache guidance", async () => {

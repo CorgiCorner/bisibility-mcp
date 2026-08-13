@@ -679,6 +679,104 @@ export const loadMoreBacklinkRowsInputSchema = z
   })
   .strict();
 
+const domainOverviewCommonInput = {
+  fresh: z
+    .boolean()
+    .optional()
+    .describe("Bypass cached module data and request fresh provider data."),
+  language_code: z
+    .string()
+    .trim()
+    .min(2)
+    .max(12)
+    .describe("Language code used for the provider lookup, for example en."),
+  location_code: z
+    .number()
+    .int()
+    .positive()
+    .describe("Positive DataForSEO location code identifying the lookup market."),
+  project_id: projectIdInput.describe(
+    "Project id whose provider connection, budget, and Domain Overview snapshot are used.",
+  ),
+  scope_override: z
+    .enum(["root", "subdomain"])
+    .optional()
+    .describe("Override automatic target scope detection with root-domain or subdomain scope."),
+  target: z.string().trim().min(1).max(253).describe("Domain or subdomain to analyze."),
+};
+
+const domainOverviewMaxCostInput = z
+  .number()
+  .int()
+  .nonnegative()
+  .describe(
+    "Maximum provider cost for this request, in cents. Use zero for an explicit cache-only attempt.",
+  );
+
+export const analyzeDomainOverviewInputSchema = z
+  .object({
+    ...domainOverviewCommonInput,
+    estimate_only: z
+      .boolean()
+      .optional()
+      .describe("Return a free cost estimate without calling the provider or spending budget."),
+    keyword_limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .optional()
+      .describe("Maximum ranked keyword rows to include in the initial report."),
+    max_cost_cents: domainOverviewMaxCostInput.describe(
+      "Maximum provider cost for this request, in cents. Use zero for an estimate or explicit cache-only attempt.",
+    ),
+    page_limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(1000)
+      .optional()
+      .describe("Maximum relevant page rows to include in the initial report."),
+  })
+  .strict();
+
+export const loadDomainOverviewHistoryInputSchema = z
+  .object({
+    ...domainOverviewCommonInput,
+    max_cost_cents: domainOverviewMaxCostInput,
+  })
+  .strict();
+
+const domainOverviewPageInput = {
+  ...domainOverviewCommonInput,
+  max_cost_cents: domainOverviewMaxCostInput,
+  offset: z.number().int().nonnegative().describe("Zero-based provider row offset for this page."),
+};
+
+export const loadDomainOverviewKeywordsInputSchema = z
+  .object({
+    ...domainOverviewPageInput,
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .describe("Number of ranked keyword rows to load, from 1 through 100."),
+  })
+  .strict();
+
+export const loadDomainOverviewPagesInputSchema = z
+  .object({
+    ...domainOverviewPageInput,
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(1000)
+      .describe("Number of relevant-page rows to load, from 1 through 1000."),
+  })
+  .strict();
+
 export const getKeywordMetricsInputSchema = z
   .object({
     connection_id: connectionIdInput.optional(),

@@ -96,11 +96,11 @@ The server consumes the public ID contract from the published
 write tools are not registered and do not appear in `tools/list`.
 
 `BISIBILITY_MCP_TOOLSETS` is an optional comma-separated allowlist. Valid toolsets are `account`,
-`alerts`, `analytics`, `backlinks`, `checks`, `competitors`, `keywords`, `notifications`, `projects`,
-`providers`, `rank-history`, `saved-views`, `signals`, `sitemaps`, `system`, `team`, `tokens`,
-and `webhooks`. An unknown value prevents the server from starting. When the variable is unset, all
-toolsets are registered. The toolset filter and read-only mode compose. The allowlist is a scope
-control, not a way to improve tool selection.
+`alerts`, `analytics`, `backlinks`, `checks`, `competitors`, `domain-overview`, `keywords`,
+`notifications`, `projects`, `providers`, `rank-history`, `saved-views`, `signals`, `sitemaps`,
+`system`, `team`, `tokens`, and `webhooks`. An unknown value prevents the server from starting.
+When the variable is unset, all toolsets are registered. The toolset filter and read-only mode
+compose. The allowlist is a scope control, not a way to improve tool selection.
 
 ## Run
 
@@ -168,11 +168,16 @@ Tools use unprefixed `snake_case` names and can be filtered with
 `BISIBILITY_MCP_TOOLSETS`. The names match the built-in `/api/mcp` endpoint, so clients can
 switch transports without rewriting tool calls.
 
+Domain Overview tools always require a nonnegative whole-cent `max_cost_cents`
+cap. Use `estimate_only: true` together with `max_cost_cents: 0` for the safe
+estimate-first step; provider estimates and returned charges may still contain
+fractional cents.
+
 | Area | Examples |
 | --- | --- |
 | Discovery | Health, capabilities, provider rates, and cost estimates |
 | Rank tracking | Projects, keywords, checks, rank history, and sitemaps |
-| Analytics | Traffic snapshots, query statistics, signals, and backlinks |
+| Analytics | Traffic snapshots, query statistics, signals, backlinks, and Domain Overview |
 | Collaboration | Alerts, team members, invitations, and notifications |
 | Administration | Providers, API keys, personal tokens, webhooks, and migration tokens |
 
@@ -199,6 +204,10 @@ switch transports without rewriting tool calls.
 - `research_keywords`
 - `analyze_backlinks`
 - `load_more_backlink_rows`
+- `analyze_domain_overview`
+- `load_domain_overview_history`
+- `load_domain_overview_keywords`
+- `load_domain_overview_pages`
 - `get_keyword_metrics`
 - `add_keywords`
 - `get_keyword`
@@ -291,6 +300,12 @@ filtering narrows the tools presented to the model, but it does not expand or re
 permissions of the configured credential.
 
 An agent that receives a write-scoped or admin credential can create and change project data.
+Provider-backed Domain Overview tools can also spend the project's own provider budget on a cache
+miss. Every Domain Overview call requires an explicit nonnegative integer `max_cost_cents`. For the
+safe estimate-first step, call `analyze_domain_overview` with `estimate_only: true` and
+`max_cost_cents: 0`; use the same zero cap for a cache-only attempt. A positive value caps the
+permitted provider charge.
+
 The destructive surface includes `delete_project`, `delete_keyword`,
 `bulk_update_keywords` when its operation is `delete`, `delete_webhook`,
 `delete_alert_rule`, `delete_saved_keyword`, `delete_saved_view`,

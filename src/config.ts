@@ -20,6 +20,7 @@ export const BISIBILITY_MCP_TOOLSETS = [
   "backlinks",
   "checks",
   "competitors",
+  "domain-overview",
   "keywords",
   "notifications",
   "projects",

@@ -1,6 +1,7 @@
 import type {
   AddCompetitorInput,
   AnalyzeBacklinksOptions,
+  AnalyzeDomainOverviewOptions,
   BisibilityClient,
   ConnectProviderInput,
   CreateAlertRuleInput,
@@ -26,6 +27,9 @@ import type {
   ListSearchPerformanceQueryStatsOptions,
   ListSignalsOptions,
   ListTrafficSnapshotsOptions,
+  LoadDomainOverviewHistoryOptions,
+  LoadDomainOverviewKeywordsOptions,
+  LoadDomainOverviewPagesOptions,
   LoadMoreBacklinkRowsOptions,
   MintMigrationTokenInput,
   PaginationOptions,
@@ -54,6 +58,7 @@ import {
   addCompetitorInputSchema,
   addKeywordsInputSchema,
   analyzeBacklinksInputSchema,
+  analyzeDomainOverviewInputSchema,
   createAlertRuleInputSchema,
   createApiKeyInputSchema,
   createPersonalTokenInputSchema,
@@ -104,6 +109,9 @@ import {
   listTrafficSnapshotsInputSchema,
   listTriggeredAlertsInputSchema,
   listWebhooksInputSchema,
+  loadDomainOverviewHistoryInputSchema,
+  loadDomainOverviewKeywordsInputSchema,
+  loadDomainOverviewPagesInputSchema,
   loadMoreBacklinkRowsInputSchema,
   markProjectAlertsReadInputSchema,
   mintMigrationTokenInputSchema,
@@ -143,6 +151,7 @@ export type BisibilityToolClient = Pick<
   | "addCompetitor"
   | "addKeywords"
   | "analyzeBacklinks"
+  | "analyzeDomainOverview"
   | "bulkUpdateKeywords"
   | "connectProvider"
   | "createAlertRule"
@@ -196,6 +205,9 @@ export type BisibilityToolClient = Pick<
   | "listTrafficSnapshots"
   | "listTriggeredAlerts"
   | "listWebhooks"
+  | "loadDomainOverviewHistory"
+  | "loadDomainOverviewKeywords"
+  | "loadDomainOverviewPages"
   | "loadMoreBacklinkRows"
   | "markProjectAlertsRead"
   | "mintMigrationToken"
@@ -339,6 +351,52 @@ function loadMoreBacklinkRowsOptions(
     target: input.target,
     targetScope: input.target_scope,
   }) as LoadMoreBacklinkRowsOptions;
+}
+
+function analyzeDomainOverviewOptions(
+  input: ParsedToolInput<typeof analyzeDomainOverviewInputSchema>,
+): AnalyzeDomainOverviewOptions {
+  return omitUndefined({
+    estimateOnly: input.estimate_only,
+    fresh: input.fresh,
+    keywordLimit: input.keyword_limit,
+    languageCode: input.language_code,
+    locationCode: input.location_code,
+    maxCostCents: input.max_cost_cents,
+    pageLimit: input.page_limit,
+    scopeOverride: input.scope_override,
+    target: input.target,
+  }) as AnalyzeDomainOverviewOptions;
+}
+
+function domainOverviewHistoryOptions(
+  input: ParsedToolInput<typeof loadDomainOverviewHistoryInputSchema>,
+): LoadDomainOverviewHistoryOptions {
+  return omitUndefined({
+    fresh: input.fresh,
+    languageCode: input.language_code,
+    locationCode: input.location_code,
+    maxCostCents: input.max_cost_cents,
+    scopeOverride: input.scope_override,
+    target: input.target,
+  }) as LoadDomainOverviewHistoryOptions;
+}
+
+function domainOverviewPageOptions(
+  input:
+    | ParsedToolInput<typeof loadDomainOverviewKeywordsInputSchema>
+    | ParsedToolInput<typeof loadDomainOverviewPagesInputSchema>,
+): LoadDomainOverviewKeywordsOptions | LoadDomainOverviewPagesOptions {
+  return omitUndefined({
+    fresh: input.fresh,
+    languageCode: input.language_code,
+    limit: input.limit,
+    locationCode: input.location_code,
+    maxCostCents: input.max_cost_cents,
+    offset: input.offset,
+    scopeOverride: input.scope_override,
+    target: input.target,
+  }) as LoadDomainOverviewKeywordsOptions | LoadDomainOverviewPagesOptions;
 }
 
 function keywordMetricsInput(
@@ -825,6 +883,7 @@ function registerTool<TSchema extends ToolSchema>(
     destructive?: boolean;
     group: BisibilityMcpToolset;
     inputSchema: TSchema;
+    publishClosedSchema?: boolean;
     title: string;
   },
   execute: ToolExecutor<TSchema>,
@@ -845,7 +904,7 @@ function registerTool<TSchema extends ToolSchema>(
         readOnlyHint: config.access === "read",
       },
       description: config.description,
-      inputSchema: config.inputSchema.shape,
+      inputSchema: config.publishClosedSchema ? config.inputSchema : config.inputSchema.shape,
       title: config.title,
     },
     toolHandler(config.inputSchema, execute),
@@ -854,10 +913,14 @@ function registerTool<TSchema extends ToolSchema>(
 
 const OPEN_WORLD_TOOL_NAMES = new Set([
   "analyze_backlinks",
+  "analyze_domain_overview",
   "connect_provider",
   "create_team_invite",
   "get_keyword_metrics",
   "list_ranked_keyword_suggestions",
+  "load_domain_overview_history",
+  "load_domain_overview_keywords",
+  "load_domain_overview_pages",
   "load_more_backlink_rows",
   "research_keywords",
   "resend_team_invite",
@@ -1198,6 +1261,95 @@ export function registerBisibilityTools(
     },
     async (input) =>
       client.loadMoreBacklinkRows(input.project_id, loadMoreBacklinkRowsOptions(input)),
+  );
+
+  registerTool(
+    registration,
+    "analyze_domain_overview",
+    {
+      access: "write",
+      group: "domain-overview",
+      description:
+        "Requires API write scope because a cache miss can spend the project's own DataForSEO " +
+        "budget. Call with estimate_only=true and max_cost_cents=0 first for a free estimate. " +
+        "Every call requires an explicit max_cost_cents. fresh=true " +
+        "bypasses cache but never removes the cost cap. Returns an estimate, cached report, or " +
+        "report with charged keyword and page module outcomes.",
+      inputSchema: analyzeDomainOverviewInputSchema,
+      publishClosedSchema: true,
+      title: "Analyze domain overview",
+    },
+    async (input) => {
+      const domainOptions = analyzeDomainOverviewOptions(input);
+      if (domainOptions.estimateOnly === true) {
+        return client.analyzeDomainOverview(input.project_id, domainOptions);
+      }
+      return client.analyzeDomainOverview(input.project_id, {
+        ...domainOptions,
+        estimateOnly: false,
+      });
+    },
+  );
+
+  registerTool(
+    registration,
+    "load_domain_overview_history",
+    {
+      access: "write",
+      group: "domain-overview",
+      description:
+        "Requires API write scope and an explicit max_cost_cents because a cache miss can spend " +
+        "provider budget. Use zero for cache-only. Loads the separately priced historical index " +
+        "series for an unexpired Domain Overview snapshot. snapshot_expired means analysis must " +
+        "run again before history can be loaded.",
+      inputSchema: loadDomainOverviewHistoryInputSchema,
+      publishClosedSchema: true,
+      title: "Load domain overview history",
+    },
+    async (input) =>
+      client.loadDomainOverviewHistory(input.project_id, domainOverviewHistoryOptions(input)),
+  );
+
+  registerTool(
+    registration,
+    "load_domain_overview_keywords",
+    {
+      access: "write",
+      group: "domain-overview",
+      description:
+        "Requires API write scope and an explicit max_cost_cents because a cache miss can spend " +
+        "provider budget. Use zero for cache-only. Loads one ranked-keyword page for the current " +
+        "Domain Overview target; snapshot_expired means analysis must run again first.",
+      inputSchema: loadDomainOverviewKeywordsInputSchema,
+      publishClosedSchema: true,
+      title: "Load domain overview keywords",
+    },
+    async (input) =>
+      client.loadDomainOverviewKeywords(
+        input.project_id,
+        domainOverviewPageOptions(input) as LoadDomainOverviewKeywordsOptions,
+      ),
+  );
+
+  registerTool(
+    registration,
+    "load_domain_overview_pages",
+    {
+      access: "write",
+      group: "domain-overview",
+      description:
+        "Requires API write scope and an explicit max_cost_cents because a cache miss can spend " +
+        "provider budget. Use zero for cache-only. Loads one relevant-page result page for the " +
+        "current Domain Overview target; snapshot_expired means analysis must run again first.",
+      inputSchema: loadDomainOverviewPagesInputSchema,
+      publishClosedSchema: true,
+      title: "Load domain overview pages",
+    },
+    async (input) =>
+      client.loadDomainOverviewPages(
+        input.project_id,
+        domainOverviewPageOptions(input) as LoadDomainOverviewPagesOptions,
+      ),
   );
 
   registerTool(

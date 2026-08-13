@@ -11,7 +11,7 @@ const readme = readFileSync("README.md", "utf8");
 
 describe("public distribution documentation", () => {
   it("keeps release targets pending until canonical channels are verified", () => {
-    const publishedVersion = "`0.6.3`";
+    const publishedVersion = "`0.7.0`";
     const targetVersion = `\`${packageManifest.version}\``;
 
     expect(distribution).toContain(
@@ -25,6 +25,9 @@ describe("public distribution documentation", () => {
     );
     expect(distribution).toContain(
       "| Smithery | Published | [bisibility/mcp](https://smithery.ai/servers/bisibility/mcp) | Hosted |",
+    );
+    expect(distribution).toContain(
+      "Existing directory submissions and pull requests stay on the version originally submitted.",
     );
   });
 

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.8.0 - 2026-08-13
+
+- Added cost-capped Domain Overview tools for estimates, reports, history, ranked keywords, and
+  relevant pages.
+
 ## 0.7.0 - 2026-08-10
 
 - Preserved primary-provider compatibility inputs: `primary: true` promotes priority `0`, while
