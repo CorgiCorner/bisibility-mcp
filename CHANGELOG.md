@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.9.0 - 2026-08-14
+
+- Added language-qualified market keys across location discovery, project defaults, and keyword
+  tools, with exact market fields preserved in keyword responses.
+
 ## 0.8.0 - 2026-08-13
 
 - Added cost-capped Domain Overview tools for estimates, reports, history, ranked keywords, and

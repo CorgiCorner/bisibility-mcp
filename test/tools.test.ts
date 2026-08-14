@@ -770,6 +770,7 @@ describe("registerBisibilityTools", () => {
           display_name: "Austin, Texas, United States",
           hl: "en",
           kind: "city",
+          language_code: "en",
           language_label: "English",
           location_key: "US/Texas/Austin",
           region_code: "TX",
@@ -786,8 +787,13 @@ describe("registerBisibilityTools", () => {
 
     expect(client.searchLocations).toHaveBeenCalledWith({ country: "US", limit: 20, q: "Austin" });
     expect(configs.get("search_locations")?.description).toContain("location_key verbatim");
+    expect(configs.get("search_locations")?.description).toContain("@language");
     expect(configs.get("add_keywords")?.description).toContain("search_locations");
+    expect(configs.get("add_keywords")?.description).toContain("@language");
     expect(configs.get("update_keyword")?.description).toContain("search_locations");
+    expect(configs.get("update_keyword")?.description).toContain("@language");
+    expect(configs.get("list_keywords")?.description).toContain("language_code");
+    expect(configs.get("get_keyword")?.description).toContain("language_label");
   });
 
   it("rejects pagination inputs on list projects", async () => {
@@ -1645,7 +1651,7 @@ describe("registerBisibilityTools", () => {
     );
   });
 
-  it("forwards keyword city, location_key, intent, and topic fields", async () => {
+  it("forwards language-qualified location_key, intent, and topic fields", async () => {
     const { callTool, client } = createToolHarness();
     client.addKeywords.mockResolvedValueOnce({
       created: 1,
@@ -1661,7 +1667,7 @@ describe("registerBisibilityTools", () => {
         {
           city: null,
           keyword: "rank tracker",
-          location_key: "US/California/Los Angeles",
+          location_key: "US/California/Los Angeles@es",
           topic: "tools",
         },
       ],
@@ -1671,7 +1677,7 @@ describe("registerBisibilityTools", () => {
       city: "Warsaw",
       intent: null,
       keyword_id: publicId("kw"),
-      location_key: "PL/Masovian Voivodeship/Warsaw",
+      location_key: "PL/Masovian Voivodeship/Warsaw@en",
       topic: "tools",
     });
 
@@ -1683,7 +1689,7 @@ describe("registerBisibilityTools", () => {
             city: null,
             intent: "commercial",
             keyword: "rank tracker",
-            location_key: "US/California/Los Angeles",
+            location_key: "US/California/Los Angeles@es",
             topic: "tools",
           },
         ],
@@ -1695,7 +1701,7 @@ describe("registerBisibilityTools", () => {
       {
         city: "Warsaw",
         intent: null,
-        location_key: "PL/Masovian Voivodeship/Warsaw",
+        location_key: "PL/Masovian Voivodeship/Warsaw@en",
         topic: "tools",
       },
       undefined,

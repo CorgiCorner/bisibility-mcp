@@ -48,7 +48,7 @@ npm run build
 The SDK is consumed from the npm registry:
 
 ```json
-"@bisibility/sdk": "^0.8.0"
+"@bisibility/sdk": "^0.10.0"
 ```
 
 ### MCPB bundle
@@ -87,7 +87,9 @@ accepted by the MCP server, including `BISIBILITY_PROJECT_ID`, must use the
 current typed public ID format: a canonical lowercase prefix plus `_` and a
 24-character lowercase suffix, for example `prj_a1b2c3d4e5f6g7h8j9k0m2n3`.
 Malformed IDs, mixed-case IDs, and wrong resource prefixes are rejected.
-Location selection uses the returned `location_key`, never a location ID.
+Location selection uses the returned `location_key`, never a location ID. A key can end in
+`@language` to select a non-default language for the location, for example
+`ES/Andalusia/Malaga@en`; an unqualified key uses the country's default language.
 
 The server consumes the public ID contract from the published
 `@bisibility/sdk` package. Do not replace it with a local SDK link.

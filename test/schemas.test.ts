@@ -135,12 +135,18 @@ describe("tool input schemas", () => {
     ).toThrow("frequency or schedule is required.");
   });
 
-  it("accepts canonical location keys and rejects malformed ones", () => {
+  it("accepts canonical location-language keys and rejects malformed ones", () => {
     expect(locationKeyInput.parse("US")).toBe("US");
     expect(locationKeyInput.parse("US/California/Los Angeles")).toBe("US/California/Los Angeles");
+    expect(locationKeyInput.parse("ES/Andalusia/Malaga@en")).toBe("ES/Andalusia/Malaga@en");
+    expect(locationKeyInput.parse("ES@es-419")).toBe("ES@es-419");
+    expect(locationKeyInput.parse("ZM@bem")).toBe("ZM@bem");
     expect(locationKeyInput.parse(undefined)).toBeUndefined();
     expect(() => locationKeyInput.parse("california")).toThrow("location_key must look like");
     expect(() => locationKeyInput.parse("US/a/b/c")).toThrow("location_key must look like");
+    expect(() => locationKeyInput.parse("ES@")).toThrow("location_key must look like");
+    expect(() => locationKeyInput.parse("ES@en@es")).toThrow("location_key must look like");
+    expect(() => locationKeyInput.parse("ES@en/us")).toThrow("location_key must look like");
   });
 
   it("accepts any provider-supported saved view country and serp filter strings", () => {

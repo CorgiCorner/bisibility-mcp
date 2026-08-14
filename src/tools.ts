@@ -1097,8 +1097,8 @@ export function registerBisibilityTools(
       access: "read",
       group: "keywords",
       description:
-        "Search canonical keyword locations. Use the returned location_key verbatim when " +
-        "creating or updating keywords for city-level tracking.",
+        "Search canonical keyword markets. Use the returned location_key verbatim when creating " +
+        "or updating keywords so an optional @language qualifier preserves the exact location-language pair.",
       inputSchema: searchLocationsInputSchema,
       title: "Search locations",
     },
@@ -1163,7 +1163,7 @@ export function registerBisibilityTools(
         "replaced as a whole: omitted schedule fields reset to their defaults (jitter 60, " +
         "timezone UTC, no cron). Provide country and device together, or a " +
         "location_key, to move the default SERP market. Use search_locations and " +
-        "pass its location_key verbatim for city-level tracking.",
+        "pass its location_key verbatim to preserve the exact location-language pair.",
       inputSchema: updateProjectDefaultsInputSchema,
       title: "Update project defaults",
     },
@@ -1181,7 +1181,9 @@ export function registerBisibilityTools(
     {
       access: "read",
       group: "keywords",
-      description: "List keywords for a project with pagination, search, filters, and sorting.",
+      description:
+        "List keywords for a project with pagination, search, filters, and sorting. Each keyword " +
+        "includes location_key, language_code, and language_label for its exact market pair.",
       inputSchema: listKeywordsInputSchema,
       title: "List project keywords",
     },
@@ -1379,7 +1381,8 @@ export function registerBisibilityTools(
       group: "keywords",
       description:
         "Add one or more keywords to a project, optionally with tags, target URL, and schedule. " +
-        "Use search_locations and pass its location_key verbatim for city-level tracking.",
+        "Use search_locations and pass its location_key verbatim; an @language qualifier selects " +
+        "a non-default language for that location.",
       inputSchema: addKeywordsInputSchema,
       title: "Add keywords",
     },
@@ -1393,7 +1396,9 @@ export function registerBisibilityTools(
     {
       access: "read",
       group: "keywords",
-      description: "Get a keyword and its latest rank position by keyword id.",
+      description:
+        "Get a keyword and its latest rank position by keyword id, including location_key, " +
+        "language_code, and language_label for its exact market pair.",
       inputSchema: getKeywordInputSchema,
       title: "Get keyword",
     },
@@ -1413,7 +1418,8 @@ export function registerBisibilityTools(
       group: "keywords",
       description:
         "Update keyword metadata such as text, country, device, target URL, tags, or schedule. " +
-        "Use search_locations and pass its location_key verbatim for city-level tracking.",
+        "Use search_locations and pass its location_key verbatim; an @language qualifier selects " +
+        "a non-default language for that location.",
       inputSchema: updateKeywordInputSchema,
       title: "Update keyword",
     },

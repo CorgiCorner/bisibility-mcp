@@ -3,7 +3,7 @@
   "manifest_version": "0.4",
   "name": "bisibility",
   "display_name": "bisibility",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Track keyword rankings, research SEO opportunities, and manage bisibility projects with AI agents.",
   "long_description": "Connect a local MCP client to bisibility Cloud or a self-hosted bisibility instance. The bundle exposes the same rank tracking, keyword research, backlink, alert, and project tools as the npm package, with guided configuration for credentials and least-privilege tool selection.",
   "author": {

@@ -217,9 +217,13 @@ const httpUrlInput = (field: string, max: number) =>
 export const locationKeyInput = z
   .string()
   .trim()
-  .regex(/^[A-Z]{2}(\/[^/]{1,80}){0,2}$/, {
-    message: 'location_key must look like "US" or "US/California/Los Angeles".',
+  .regex(/^[A-Z]{2}(\/[^/@]{1,80}){0,2}(@[a-z]{2,3}(-[a-z0-9]{2,8})?)?$/, {
+    message:
+      'location_key must look like "US", "US/California/Los Angeles", or "ES/Andalusia/Malaga@en".',
   })
+  .describe(
+    "Canonical country, region, or city key. Append @language for a non-default language pair; an unqualified key uses the country's default language.",
+  )
   .optional();
 
 const keywordMarketInputs = {
