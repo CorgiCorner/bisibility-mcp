@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.10.0 - 2026-09-09
+
+- Added depth-aware cost estimates for manual, paused, and custom schedules, preserving unknown monthly costs instead of reporting zero.
+- Updated URI parsing to address security vulnerabilities.
+
 ## 0.9.0 - 2026-08-14
 
 - Added language-qualified market keys across location discovery, project defaults, and keyword

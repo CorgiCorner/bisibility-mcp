@@ -490,6 +490,8 @@ function costEstimateOptions(
   input: ParsedToolInput<typeof getCostEstimateInputSchema>,
 ): GetCostEstimateOptions {
   return omitUndefined({
+    cron_expression: input.cron_expression,
+    depth: input.depth,
     devices: input.devices,
     frequency: input.frequency,
     keywords: input.keywords,
@@ -1008,11 +1010,12 @@ export function registerBisibilityTools(
       access: "read",
       group: "providers",
       description:
-        "Estimate the monthly rank-check cost for a keyword portfolio using the public provider " +
-        "rate cards. Provide the keyword count plus optional devices per keyword (1-2), " +
-        "locations per keyword, and check frequency (daily, weekly, or monthly). Pick a rate " +
-        "card with provider (defaults to dataforseo) and optionally a flat-rate option key or a " +
-        "plan key; see get_provider_rates for available keys. Anonymous endpoint.",
+        "Estimate rank checks, result pages, and monthly provider cost for a keyword portfolio. " +
+        "Provide keywords, markets (locations), devices (1-2), and depth (10, 20, 50, or 100; default 100). " +
+        "Frequency supports daily, weekly, monthly, manual, paused, and custom_cron with cron_expression. " +
+        "Missing or invalid custom cron leaves monthly quantities and costs unknown. " +
+        "Pick a provider (default dataforseo) and optionally an option or plan key; " +
+        "see get_provider_rates. Anonymous endpoint.",
       inputSchema: getCostEstimateInputSchema,
       title: "Get cost estimate",
     },

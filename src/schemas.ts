@@ -195,9 +195,12 @@ export const createSignalSourceInput = z
   .enum(["api", "cms", "deploy"])
   .describe("System or workflow that produced the new signal.");
 export const signalSeverityInput = z.enum(["critical", "info", "warning"]);
-export const costEstimateFrequencyInput = rankCheckFrequencyInput.exclude([
-  "paused",
+export const costEstimateFrequencyInput = z.enum([
+  "daily",
+  "weekly",
+  "monthly",
   "manual",
+  "paused",
   "custom_cron",
 ]);
 
@@ -316,7 +319,9 @@ export const getCostEstimateInputSchema = z
       .min(1)
       .max(100)
       .optional()
-      .describe("Location count per keyword. Defaults to 1."),
+      .describe(
+        "Market count per keyword; each market combines a location and language. Defaults to 1.",
+      ),
     option: optionalLimitedText(80).describe(
       'Flat-rate provider option key, for example "standard", "priority", or "live".',
     ),
@@ -326,6 +331,19 @@ export const getCostEstimateInputSchema = z
     provider: optionalLimitedText(80).describe(
       'Provider rate card to use. Defaults to "dataforseo".',
     ),
+    depth: z
+      .literal([10, 20, 50, 100])
+      .meta({ type: "integer" })
+      .optional()
+      .describe("Organic result depth. Defaults to Top 100."),
+    cron_expression: z
+      .string()
+      .trim()
+      .max(120)
+      .optional()
+      .describe(
+        "Cron expression for custom_cron; missing or invalid values leave monthly estimates unknown.",
+      ),
   })
   .strict();
 

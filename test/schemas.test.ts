@@ -111,7 +111,9 @@ describe("tool input schemas", () => {
     ]);
     expect(rankCheckFrequencyInput.parse("monthly")).toBe("monthly");
     expect(costEstimateFrequencyInput.parse("monthly")).toBe("monthly");
-    expect(() => costEstimateFrequencyInput.parse("manual")).toThrow();
+    expect(costEstimateFrequencyInput.parse("manual")).toBe("manual");
+    expect(costEstimateFrequencyInput.parse("paused")).toBe("paused");
+    expect(costEstimateFrequencyInput.parse("custom_cron")).toBe("custom_cron");
     expect(
       keywordScheduleInput.parse({ cron_expression: null, frequency: "monthly" }),
     ).toMatchObject({ frequency: "monthly" });

@@ -14,8 +14,8 @@ describe("public distribution documentation", () => {
     // Each channel records the version that channel actually serves, checked against its public
     // API before the release. npm and the Official MCP Registry drift apart because registry
     // publication is a separate, manual submission.
-    const npmPublishedVersion = "`0.8.0`";
-    const registryPublishedVersion = "`0.5.2`";
+    const npmPublishedVersion = "`0.9.0`";
+    const registryPublishedVersion = "`0.7.0`";
     const targetVersion = `\`${packageManifest.version}\``;
 
     expect(distribution).toContain(

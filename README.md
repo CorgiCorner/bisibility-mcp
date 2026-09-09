@@ -48,7 +48,7 @@ npm run build
 The SDK is consumed from the npm registry:
 
 ```json
-"@bisibility/sdk": "^0.10.0"
+"@bisibility/sdk": "^0.12.0"
 ```
 
 ### MCPB bundle
