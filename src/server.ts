@@ -3,7 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import { type BisibilityMcpToolset, readBisibilityMcpToolConfig } from "./config.js";
 import { SERVER_NAME, SERVER_VERSION } from "./constants.js";
-import { registerBisibilityTools } from "./tools.js";
+import { bisibilitySessionProfile, registerBisibilityTools } from "./tools.js";
 
 export interface CreateBisibilityMcpServerOptions {
   client: BisibilityClient;
@@ -19,6 +19,14 @@ export function createBisibilityMcpServer(options: CreateBisibilityMcpServerOpti
       ? readBisibilityMcpToolConfig()
       : undefined;
   const hasDefaultProject = Boolean(process.env.BISIBILITY_PROJECT_ID?.trim());
+  const toolsets = options.toolsets ?? envConfig?.toolsets;
+  const registerOptions = {
+    client: options.client,
+    readOnly: options.readOnly ?? envConfig?.readOnly ?? false,
+    ...(toolsets ? { toolsets } : {}),
+  };
+  const profile = bisibilitySessionProfile(registerOptions);
+  const profileSentence = `Session profile: read-only: ${profile.read_only}, toolsets: [${profile.toolsets.join(", ")}], tools: ${profile.tool_count}${profile.read_only ? "; write tools are hidden, not forbidden by the API." : "."}`;
   const instructions = [
     "bisibility MCP lets you inspect and manage SEO tracking projects, rankings, alerts, webhooks, and integrations.",
     // Conditional on purpose. An unconditional "call list_projects first" made both
@@ -30,6 +38,7 @@ export function createBisibilityMcpServer(options: CreateBisibilityMcpServerOpti
           "When BISIBILITY_PROJECT_ID is configured, it sets the default project, so applicable project_id inputs may be omitted.",
         ]
       : []),
+    `${profileSentence} Call get_session_profile to see the same profile as structured data.`,
   ].join(" ");
   const server = new McpServer(
     {
@@ -40,13 +49,8 @@ export function createBisibilityMcpServer(options: CreateBisibilityMcpServerOpti
       instructions,
     },
   );
-  const toolsets = options.toolsets ?? envConfig?.toolsets;
 
-  registerBisibilityTools(server, {
-    client: options.client,
-    readOnly: options.readOnly ?? envConfig?.readOnly ?? false,
-    ...(toolsets ? { toolsets } : {}),
-  });
+  registerBisibilityTools(server, registerOptions);
 
   return server;
 }

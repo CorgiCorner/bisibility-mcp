@@ -48,7 +48,7 @@ npm run build
 The SDK is consumed from the npm registry:
 
 ```json
-"@bisibility/sdk": "^0.12.0"
+"@bisibility/sdk": "^0.13.0"
 ```
 
 ### MCPB bundle
@@ -78,7 +78,7 @@ export BISIBILITY_MCP_TOOLSETS="projects,keywords,checks,rank-history"
 ```
 
 `BISIBILITY_BASE_URL` is optional and defaults to `https://eu.bisibility.com/api/v1`. For self-hosted
-installs, set it to your API v1 root, for example `https://rank.example/api/v1`.
+installs, set it to your API v1 root, for example `https://rank.example.com/api/v1`.
 `BISIBILITY_API_KEY` accepts a project key (`bsb_key_live_...`) or personal access
 token (`bsb_pat_live_...`). Set optional `BISIBILITY_PROJECT_ID` as the default
 `X-Bisibility-Project` selector for project-implicit PAT tools; a tool's
@@ -97,9 +97,9 @@ The server consumes the public ID contract from the published
 `BISIBILITY_MCP_READ_ONLY` accepts `1`, `true`, `yes`, or `on`, ignoring case. When enabled,
 write tools are not registered and do not appear in `tools/list`.
 
-`BISIBILITY_MCP_TOOLSETS` is an optional comma-separated allowlist. Valid toolsets are `account`,
+`BISIBILITY_MCP_TOOLSETS` is an optional comma-separated allowlist. Valid toolsets are `account`, `agent-reports`, `ai-visibility`,
 `alerts`, `analytics`, `backlinks`, `checks`, `competitors`, `domain-overview`, `keywords`,
-`notifications`, `projects`, `providers`, `rank-history`, `saved-views`, `signals`, `sitemaps`,
+`notifications`, `project-context`, `projects`, `prompt-explorer`, `providers`, `rank-history`, `saved-keywords`, `saved-views`, `signals`, `site-audits`, `sitemaps`,
 `system`, `team`, `tokens`, and `webhooks`. An unknown value prevents the server from starting.
 When the variable is unset, all toolsets are registered. The toolset filter and read-only mode
 compose. The allowlist is a scope control, not a way to improve tool selection.
@@ -167,8 +167,8 @@ If `bisibility-mcp` is installed on the client's `PATH`, use the package bin:
 ## Tools
 
 Tools use unprefixed `snake_case` names and can be filtered with
-`BISIBILITY_MCP_TOOLSETS`. The names match the built-in `/api/mcp` endpoint, so clients can
-switch transports without rewriting tool calls.
+`BISIBILITY_MCP_TOOLSETS`. Tools shared with the built-in `/api/mcp` endpoint use the same names. The two transports
+have different tool inventories; check `tools/list` before switching.
 
 Domain Overview tools always require a nonnegative whole-cent `max_cost_cents`
 cap. Use `estimate_only: true` together with `max_cost_cents: 0` for the safe
@@ -180,12 +180,18 @@ fractional cents.
 | Discovery | Health, capabilities, provider rates, and cost estimates |
 | Rank tracking | Projects, keywords, checks, rank history, and sitemaps |
 | Analytics | Traffic snapshots, query statistics, signals, backlinks, and Domain Overview |
+| Agent analysis | Project context, saved reports, AI visibility, synthetic prompt comparisons, and bounded site audits |
 | Collaboration | Alerts, team members, invitations, and notifications |
 | Administration | Providers, API keys, personal tokens, webhooks, and migration tokens |
 
 <details>
-<summary>View all registered tool names</summary>
+<summary>View tool names in this source checkout</summary>
 
+This list describes the `0.11.0` source checkout. See the
+[distribution status](docs/DISTRIBUTION.md) for currently published package and directory versions.
+The hosted endpoint has its own inventory.
+
+- `get_session_profile`
 - `get_health`
 - `get_capabilities`
 - `get_cloud_import_compatibility`
@@ -204,9 +210,12 @@ fractional cents.
 - `list_keywords`
 - `list_ranked_keyword_suggestions`
 - `research_keywords`
+- `estimate_keyword_research_cost`
 - `analyze_backlinks`
+- `estimate_backlinks_cost`
 - `load_more_backlink_rows`
 - `analyze_domain_overview`
+- `estimate_domain_overview_cost`
 - `load_domain_overview_history`
 - `load_domain_overview_keywords`
 - `load_domain_overview_pages`
@@ -277,6 +286,16 @@ fractional cents.
 - `list_migration_tokens`
 - `mint_migration_token`
 - `revoke_migration_token`
+- `get_project_context`
+- `update_project_context`
+- `list_agent_reports`
+- `create_agent_report`
+- `get_agent_report`
+- `analyze_ai_visibility`
+- `compare_ai_prompts`
+- `run_site_audit`
+- `list_site_audits`
+- `get_site_audit`
 
 </details>
 
@@ -307,6 +326,13 @@ miss. Every Domain Overview call requires an explicit nonnegative integer `max_c
 safe estimate-first step, call `analyze_domain_overview` with `estimate_only: true` and
 `max_cost_cents: 0`; use the same zero cap for a cache-only attempt. A positive value caps the
 permitted provider charge.
+
+AI visibility reads a limited provider-observed dataset. Prompt Explorer runs synthetic prompts;
+it does not measure all user conversations or observed AI visibility. Both require an explicit
+whole-cent `max_cost_cents` cap, including estimate-only calls. Start with `estimate_only: true`
+and a zero cap. Site audits crawl only the project domain within a bounded page count and deadline;
+they do not run Lighthouse or paid provider work. Saved reports and project context retain the
+project's existing authorization rules.
 
 The destructive surface includes `delete_project`, `delete_keyword`,
 `bulk_update_keywords` when its operation is `delete`, `delete_webhook`,

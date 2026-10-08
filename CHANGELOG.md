@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.11.0 - 2026-10-07
+
+- Added project context, saved reports, cost-capped AI visibility and prompt comparison, and bounded site audit tools.
+- Added session profile and cost estimate tools, plus spending caps for rank checks and ranked keyword suggestions.
+- Improved project defaults, sitemap monitor controls, provider setup guidance, and descriptions of tool results.
+- Preserved cost-only dry runs and identified MCP API traffic for usage reporting.
+- Updated protocol dependencies for security fixes, improved package guidance, and included NOTICE in npm and MCPB packages.
+
 ## 0.10.0 - 2026-09-09
 
 - Added depth-aware cost estimates for manual, paused, and custom schedules, preserving unknown monthly costs instead of reporting zero.

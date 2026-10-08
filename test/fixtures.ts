@@ -50,7 +50,7 @@ export function backlinksSnapshot(overrides: Partial<BacklinksSnapshot> = {}): B
   return {
     cached: false,
     cached_until: "2026-07-25T15:00:00.000Z",
-    cost_cents: 5,
+    cost_cents: 7,
     fetched_at: "2026-07-24T15:00:00.000Z",
     fetched_row_count: 100,
     history: [{ lost_links: 8, month: "2026-07", new_links: 22 }],
@@ -88,6 +88,69 @@ export function backlinksSnapshot(overrides: Partial<BacklinksSnapshot> = {}): B
     target: "example.com",
     target_scope: "site",
     total_rows_available: 1685,
+    ...overrides,
+  };
+}
+
+/**
+ * Free `estimate_only=true` dry run for backlinks: cost facts only, with no summary, history,
+ * rows, fetched_at, fetched_row_count, or total_rows_available.
+ */
+export interface BacklinksEstimateFixture {
+  cached: boolean;
+  cached_until: string | null;
+  cost_cents: number;
+  estimate: true;
+  estimated_cost_cents: number;
+  include_subdomains: boolean;
+  provider: string;
+  target: string;
+  target_scope: "site" | "page";
+}
+
+export function backlinksEstimate(
+  overrides: Partial<BacklinksEstimateFixture> = {},
+): BacklinksEstimateFixture {
+  return {
+    cached: false,
+    cached_until: null,
+    cost_cents: 7,
+    estimate: true,
+    estimated_cost_cents: 7,
+    include_subdomains: true,
+    provider: "dataforseo",
+    target: "example.com",
+    target_scope: "site",
+    ...overrides,
+  };
+}
+
+/**
+ * Free `estimate_only=true` dry run for keyword research: per-source cost facts only, with no
+ * rows, fetched_at, total_count, or per-source status, returned, or reason.
+ */
+export interface KeywordResearchEstimateFixture {
+  cached: boolean;
+  connections: Array<{ id: string; label: string; provider: string }>;
+  cost_cents: number;
+  estimate: true;
+  provider: string;
+  sources: Array<{ cached: boolean; cost_cents: number; source: string }>;
+}
+
+export function keywordResearchEstimate(
+  overrides: Partial<KeywordResearchEstimateFixture> = {},
+): KeywordResearchEstimateFixture {
+  return {
+    cached: false,
+    connections: [{ id: publicId("conn"), label: "DataForSEO", provider: "dataforseo" }],
+    cost_cents: 2,
+    estimate: true,
+    provider: "dataforseo",
+    sources: [
+      { cached: false, cost_cents: 2, source: "related" },
+      { cached: false, cost_cents: 0, source: "suggestion" },
+    ],
     ...overrides,
   };
 }

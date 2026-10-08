@@ -1,6 +1,7 @@
 import * as z from "zod/v4";
 
 export const publicIdPrefixes = [
+  "agr",
   "al",
   "alr",
   "audit",
@@ -514,6 +515,14 @@ export const updateProjectDefaultsInputSchema = z
     jitter_minutes: z.number().int().min(0).max(120).optional(),
     location_key: locationKeyInput,
     project_id: projectIdInput,
+    serp_depth: z
+      .literal([10, 20, 50, 100])
+      .meta({ type: "integer" })
+      .optional()
+      .describe(
+        "Default number of SERP results to scan per rank check (10, 20, 50, or 100). Omitted " +
+          "keeps the stored depth.",
+      ),
     serp_stop_on_match: z
       .boolean()
       .optional()
@@ -604,6 +613,12 @@ export const listRankedKeywordSuggestionsInputSchema = z
     connection_id: connectionIdInput.optional(),
     fresh: z.boolean().optional(),
     limit: z.number().int().min(1).max(100).optional(),
+    max_cost_cents: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("Server-enforced maximum provider cost for a cache miss, in cents."),
     offset: z.number().int().min(0).max(900).multipleOf(100).optional(),
     project_id: projectIdInput,
   })
@@ -636,6 +651,36 @@ export const researchKeywordsInputSchema = z
   })
   .strict();
 
+export const estimateKeywordResearchCostInputSchema = z
+  .object({
+    include_clickstream: z
+      .boolean()
+      .optional()
+      .describe("Refine volumes with clickstream data when the paid research runs."),
+    max_cost_cents: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("Best-effort maximum provider cost for the paid request, in cents."),
+    mode: z
+      .enum(["auto", "related", "suggestions", "ideas"])
+      .optional()
+      .describe("Research mode the estimate is priced for."),
+    project_id: projectIdInput,
+    result_limit: z
+      .union([z.literal(100), z.literal(300), z.literal(500)])
+      .optional()
+      .describe("Maximum number of research rows the paid call would return."),
+    seed: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .describe("Keyword or phrase used as the starting point for research."),
+  })
+  .strict();
+
 export const analyzeBacklinksInputSchema = z
   .object({
     estimate_only: z
@@ -656,6 +701,35 @@ export const analyzeBacklinksInputSchema = z
       .positive()
       .optional()
       .describe("Best-effort maximum provider cost for this request, in cents."),
+    mode: z
+      .enum(["as_is", "one_per_domain"])
+      .optional()
+      .describe("Return backlinks as provided or denoise to one backlink per referring domain."),
+    project_id: projectIdInput.describe("Project id whose provider budget and snapshot are used."),
+    result_limit: z
+      .union([z.literal(100), z.literal(300), z.literal(500), z.literal(1000)])
+      .optional()
+      .describe("Maximum number of backlink rows to fetch: 100, 300, 500, or 1000."),
+    target: z.string().trim().min(1).max(2048).describe("Domain or full page URL to analyze."),
+    target_scope: z
+      .enum(["site", "page"])
+      .optional()
+      .describe("Analyze the whole site or one page. The API infers the scope when omitted."),
+  })
+  .strict();
+
+export const estimateBacklinksCostInputSchema = z
+  .object({
+    include_subdomains: z
+      .boolean()
+      .optional()
+      .describe("Include backlinks to subdomains for site targets. Ignored for page targets."),
+    max_cost_cents: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("Best-effort maximum provider cost for the paid request, in cents."),
     mode: z
       .enum(["as_is", "one_per_domain"])
       .optional()
@@ -762,6 +836,47 @@ export const analyzeDomainOverviewInputSchema = z
   })
   .strict();
 
+export const estimateDomainOverviewCostInputSchema = z
+  .object({
+    keyword_limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .optional()
+      .describe("Maximum ranked keyword rows the paid report would include."),
+    language_code: z
+      .string()
+      .trim()
+      .min(2)
+      .max(12)
+      .describe("Language code used for the provider lookup, for example en."),
+    location_code: z
+      .number()
+      .int()
+      .positive()
+      .describe("Positive provider location code identifying the lookup market."),
+    max_cost_cents: domainOverviewMaxCostInput.describe(
+      "Maximum provider cost for the paid request, in cents. Use zero for an explicit cache-only attempt.",
+    ),
+    page_limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(1000)
+      .optional()
+      .describe("Maximum relevant page rows the paid report would include."),
+    project_id: projectIdInput.describe(
+      "Project id whose provider connection, budget, and Domain Overview snapshot are used.",
+    ),
+    scope_override: z
+      .enum(["root", "subdomain"])
+      .optional()
+      .describe("Override automatic target scope detection with root-domain or subdomain scope."),
+    target: z.string().trim().min(1).max(253).describe("Domain or subdomain to analyze."),
+  })
+  .strict();
+
 export const loadDomainOverviewHistoryInputSchema = z
   .object({
     ...domainOverviewCommonInput,
@@ -842,7 +957,13 @@ export const listSitemapMonitorsInputSchema = z.object({ project_id: projectIdIn
 export const updateSitemapMonitorInputSchema = z
   .object({
     ...requestOptionsInput,
-    monitor_id: projectIdInput,
+    monitor_id: publicIdInput("prj")
+      .optional()
+      .describe(
+        "Identifier of the sitemap monitor to update, as returned by list_sitemap_monitors. " +
+          "Optional: a project has one monitor whose id equals the project id, so it defaults to " +
+          "project_id.",
+      ),
     project_id: projectIdInput,
   })
   .strict();
@@ -984,6 +1105,12 @@ export const runRankCheckInputSchema = z
     ...projectSelectionInput,
     async: z.boolean().optional(),
     keyword_id: keywordIdInput,
+    max_cost_cents: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("Server-enforced maximum for the preflight cost estimate of this check, in cents."),
     provider_id: providerIdInput
       .optional()
       .describe("SERP provider id, validated server-side. Known values: dataforseo and serpapi."),

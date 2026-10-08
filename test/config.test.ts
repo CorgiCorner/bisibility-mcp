@@ -76,6 +76,7 @@ describe("bisibility MCP config", () => {
     expect(bisibilityClientMock).toHaveBeenLastCalledWith({
       apiKey: "bsb_pat_live_1",
       baseUrl: DEFAULT_BISIBILITY_BASE_URL,
+      headers: { "x-bisibility-source": "mcp" },
       projectId,
     });
   });
@@ -133,6 +134,7 @@ describe("bisibility MCP config", () => {
       apiKey: "bsb_key_live_1",
       baseUrl: "https://rank.example/api/v1",
       fetch: fetchImpl,
+      headers: { "x-bisibility-source": "mcp" },
     });
   });
 

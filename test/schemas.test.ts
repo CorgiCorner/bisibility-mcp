@@ -7,6 +7,9 @@ import {
   analyzeDomainOverviewInputSchema,
   costEstimateFrequencyInput,
   createSavedViewInputSchema,
+  estimateBacklinksCostInputSchema,
+  estimateDomainOverviewCostInputSchema,
+  estimateKeywordResearchCostInputSchema,
   exportRankHistoryInputSchema,
   getKeywordMetricsInputSchema,
   keywordBulkInputSchema,
@@ -30,6 +33,7 @@ import {
   targetUrlValueInput,
   updateProjectDefaultsInputSchema,
   updateProjectInputSchema,
+  updateSitemapMonitorInputSchema,
 } from "../src/schemas.js";
 
 describe("tool input schemas", () => {
@@ -378,6 +382,90 @@ describe("tool input schemas", () => {
     }
   });
 
+  it("accepts sibling-shaped estimate inputs without the ignored write-side knobs", () => {
+    expect(
+      estimateBacklinksCostInputSchema.parse({
+        include_subdomains: false,
+        max_cost_cents: 7,
+        mode: "one_per_domain",
+        project_id: publicId("prj"),
+        result_limit: 300,
+        target: "https://example.com/pricing",
+        target_scope: "page",
+      }),
+    ).toMatchObject({ result_limit: 300 });
+    expect(
+      estimateKeywordResearchCostInputSchema.parse({
+        include_clickstream: true,
+        max_cost_cents: 6,
+        mode: "auto",
+        project_id: publicId("prj"),
+        result_limit: 300,
+        seed: "rank tracker",
+      }),
+    ).toMatchObject({ seed: "rank tracker" });
+    expect(
+      estimateDomainOverviewCostInputSchema.parse({
+        keyword_limit: 10,
+        language_code: "en",
+        location_code: 2840,
+        max_cost_cents: 0,
+        page_limit: 20,
+        project_id: publicId("prj"),
+        target: "example.com",
+      }),
+    ).toMatchObject({ location_code: 2840 });
+  });
+
+  it("rejects estimate_only, fresh, and connection_id on every estimate schema", () => {
+    const validEstimateInputs = {
+      estimateBacklinksCostInputSchema: {
+        project_id: publicId("prj"),
+        target: "example.com",
+      },
+      estimateKeywordResearchCostInputSchema: {
+        project_id: publicId("prj"),
+        seed: "rank tracker",
+      },
+      estimateDomainOverviewCostInputSchema: {
+        language_code: "en",
+        location_code: 2840,
+        max_cost_cents: 0,
+        project_id: publicId("prj"),
+        target: "example.com",
+      },
+    } as const;
+
+    for (const [name, valid] of Object.entries(validEstimateInputs)) {
+      const schema = {
+        estimateBacklinksCostInputSchema,
+        estimateDomainOverviewCostInputSchema,
+        estimateKeywordResearchCostInputSchema,
+      }[name as keyof typeof validEstimateInputs];
+      expect(schema.parse(valid)).toBeTruthy();
+      expect(() => schema.parse({ ...valid, estimate_only: false })).toThrow();
+      expect(() => schema.parse({ ...valid, estimate_only: true })).toThrow();
+      expect(() => schema.parse({ ...valid, fresh: true })).toThrow();
+    }
+    expect(() =>
+      estimateKeywordResearchCostInputSchema.parse({
+        connection_id: publicId("conn"),
+        project_id: publicId("prj"),
+        seed: "rank tracker",
+      }),
+    ).toThrow();
+  });
+
+  it("describes every estimate input field", () => {
+    for (const schema of [
+      estimateBacklinksCostInputSchema,
+      estimateDomainOverviewCostInputSchema,
+      estimateKeywordResearchCostInputSchema,
+    ]) {
+      expect(Object.values(schema.shape).every((field) => field.description)).toBe(true);
+    }
+  });
+
   it("requires an explicit Domain Overview cost cap for every analysis", () => {
     const common = {
       language_code: "en",
@@ -540,6 +628,51 @@ describe("tool input schemas", () => {
       frequency: "custom_cron",
       project_id: publicId("prj"),
     });
+  });
+
+  it("accepts the supported SERP depths on project defaults and rejects others", () => {
+    for (const serp_depth of [10, 20, 50, 100]) {
+      expect(
+        updateProjectDefaultsInputSchema.parse({
+          frequency: "daily",
+          project_id: publicId("prj"),
+          serp_depth,
+        }),
+      ).toMatchObject({ serp_depth });
+    }
+    expect(() =>
+      updateProjectDefaultsInputSchema.parse({
+        frequency: "daily",
+        project_id: publicId("prj"),
+        serp_depth: 30,
+      }),
+    ).toThrow();
+    expect(
+      updateProjectDefaultsInputSchema.parse({
+        frequency: "daily",
+        project_id: publicId("prj"),
+      }),
+    ).not.toHaveProperty("serp_depth");
+  });
+
+  it("defaults the sitemap monitor id to the project id", () => {
+    expect(
+      updateSitemapMonitorInputSchema.parse({
+        project_id: publicId("prj"),
+      }),
+    ).toEqual({ project_id: publicId("prj") });
+    expect(
+      updateSitemapMonitorInputSchema.parse({
+        monitor_id: publicId("prj"),
+        project_id: publicId("prj"),
+      }),
+    ).toEqual({ monitor_id: publicId("prj"), project_id: publicId("prj") });
+    expect(() =>
+      updateSitemapMonitorInputSchema.parse({
+        monitor_id: "not-an-id",
+        project_id: publicId("prj"),
+      }),
+    ).toThrow();
   });
 
   it("requires country and device together unless a location key is provided", () => {

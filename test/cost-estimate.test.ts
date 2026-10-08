@@ -1,10 +1,29 @@
-import { BisibilityClient } from "@bisibility/sdk";
+import { BisibilityClient, type PlanCostEstimate } from "@bisibility/sdk";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { describe, expect, it, vi } from "vitest";
 import { getCostEstimateInputSchema } from "../src/schemas.js";
 import { registerBisibilityTools } from "../src/tools.js";
 
-function harness(data: unknown = {}) {
+const baseEstimate: PlanCostEstimate = {
+  billing_units_per_check: 10,
+  checks_per_run: 12,
+  depth: 100,
+  effective_cost_per_check_cents: null,
+  exceeds_largest_plan: false,
+  exceeds_selected_plan: false,
+  monthly_billing_units: null,
+  monthly_checks: null,
+  monthly_cost_cents: null,
+  monthly_cost_usd: null,
+  pricing_model: "plan",
+  provider_id: "serpapi",
+  rate_checked_at: "2026-10-07",
+  rate_source_url: "https://pricing.example.com/plans",
+  result_pages_per_run: 120,
+  runs_per_month: null,
+};
+
+function harness(data: PlanCostEstimate = baseEstimate) {
   const requests: URL[] = [];
   const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
     const url = new URL(String(input));
@@ -41,7 +60,7 @@ describe("cost estimate transport", () => {
   it.each([10, 20, 50, 100])(
     "passes depth %s and custom cadence through the real SDK",
     async (depth) => {
-      const data = { monthly_cost_cents: 120, result_pages_per_run: 12 };
+      const data = { ...baseEstimate, monthly_cost_cents: 120, result_pages_per_run: 12 };
       const { call, request } = harness(data);
       const result = await call({
         cron_expression: "0 7 * * 1",
@@ -63,7 +82,7 @@ describe("cost estimate transport", () => {
   it.each(["manual", "paused"])(
     "accepts %s without inventing a monthly cost",
     async (frequency) => {
-      const data = { monthly_cost_cents: 0, runs_per_month: 0 };
+      const data = { ...baseEstimate, monthly_cost_cents: 0, runs_per_month: 0 };
       const { call, request } = harness(data);
       expect((await call({ frequency, keywords: 12 })).structuredContent).toEqual({ data });
       expect(request().searchParams.get("frequency")).toBe(frequency);
@@ -73,7 +92,7 @@ describe("cost estimate transport", () => {
   it.each([undefined, "", "invalid cron"])(
     "preserves unknown estimates for cron %s",
     async (cron) => {
-      const data = { monthly_cost_cents: null, runs_per_month: null };
+      const data = { ...baseEstimate, monthly_cost_cents: null, runs_per_month: null };
       const { call, request } = harness(data);
       expect(
         (await call({ cron_expression: cron, frequency: "custom_cron", keywords: 12 }))

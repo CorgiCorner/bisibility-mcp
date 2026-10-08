@@ -10,19 +10,19 @@ const packageManifest = JSON.parse(readFileSync("package.json", "utf8")) as Pack
 const readme = readFileSync("README.md", "utf8");
 
 describe("public distribution documentation", () => {
-  it("keeps release targets pending until canonical channels are verified", () => {
+  it("records verified versions separately for each distribution channel", () => {
     // Each channel records the version that channel actually serves, checked against its public
     // API before the release. npm and the Official MCP Registry drift apart because registry
     // publication is a separate, manual submission.
-    const npmPublishedVersion = "`0.9.0`";
+    const npmPublishedVersion = "`0.10.0`";
     const registryPublishedVersion = "`0.7.0`";
     const targetVersion = `\`${packageManifest.version}\``;
 
     expect(distribution).toContain(
-      `| npm | Published ${npmPublishedVersion}; ${targetVersion} pending verification | [@bisibility/mcp](https://www.npmjs.com/package/@bisibility/mcp) | ${npmPublishedVersion} verified, ${targetVersion} target |`,
+      `| npm | Published ${npmPublishedVersion} | [@bisibility/mcp](https://www.npmjs.com/package/@bisibility/mcp) | ${npmPublishedVersion} verified |`,
     );
     expect(distribution).toContain(
-      `| Official MCP Registry | Published ${registryPublishedVersion}; ${targetVersion} pending downstream indexing | [com.bisibility/mcp](https://registry.modelcontextprotocol.io/v0.1/servers?search=com.bisibility%2Fmcp) | ${registryPublishedVersion} verified, ${targetVersion} target |`,
+      `| Official MCP Registry | Published ${registryPublishedVersion}; ${targetVersion} release target | [com.bisibility/mcp](https://registry.modelcontextprotocol.io/v0.1/servers?search=com.bisibility%2Fmcp) | ${registryPublishedVersion} verified, ${targetVersion} target |`,
     );
     expect(distribution).toContain(
       "| Docker MCP Catalog | Submitted - under review | [docker/mcp-registry#4603](https://github.com/docker/mcp-registry/pull/4603) | `0.6.0` |",

@@ -10,11 +10,16 @@ import type {
   BisibilityToolClient,
   RegisterBisibilityToolsOptions,
 } from "../src/index.js";
-import { createBisibilityMcpServer, registerBisibilityTools } from "../src/index.js";
+import {
+  BISIBILITY_MCP_TOOLSETS,
+  createBisibilityMcpServer,
+  registerBisibilityTools,
+} from "../src/index.js";
 import {
   activeMigrationToken,
   alertRule,
   apiKey,
+  backlinksEstimate,
   backlinksSnapshot,
   competitor,
   competitorListResponse,
@@ -24,6 +29,7 @@ import {
   dataResponse,
   issuedMigrationToken,
   keyword,
+  keywordResearchEstimate,
   listResponse,
   migrationTokenListResponse,
   notificationPreferences,
@@ -51,6 +57,7 @@ type ToolResult = {
 type ToolHandler = (input?: unknown) => Promise<ToolResult>;
 
 const expectedToolNames = [
+  "get_session_profile",
   "get_health",
   "get_capabilities",
   "get_cloud_import_compatibility",
@@ -69,9 +76,12 @@ const expectedToolNames = [
   "list_keywords",
   "list_ranked_keyword_suggestions",
   "research_keywords",
+  "estimate_keyword_research_cost",
   "analyze_backlinks",
+  "estimate_backlinks_cost",
   "load_more_backlink_rows",
   "analyze_domain_overview",
+  "estimate_domain_overview_cost",
   "load_domain_overview_history",
   "load_domain_overview_keywords",
   "load_domain_overview_pages",
@@ -142,10 +152,30 @@ const expectedToolNames = [
   "list_migration_tokens",
   "mint_migration_token",
   "revoke_migration_token",
+  "get_project_context",
+  "update_project_context",
+  "list_agent_reports",
+  "create_agent_report",
+  "get_agent_report",
+  "analyze_ai_visibility",
+  "compare_ai_prompts",
+  "run_site_audit",
+  "list_site_audits",
+  "get_site_audit",
 ];
 
 function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeof vi.fn>> {
   return {
+    getProjectContext: vi.fn(),
+    updateProjectContext: vi.fn(),
+    listAgentReports: vi.fn(),
+    createAgentReport: vi.fn(),
+    getAgentReport: vi.fn(),
+    analyzeAiVisibility: vi.fn(),
+    compareAiPrompts: vi.fn(),
+    runSiteAudit: vi.fn(),
+    listSiteAudits: vi.fn(),
+    getSiteAudit: vi.fn(),
     addCompetitor: vi.fn(),
     addKeywords: vi.fn(),
     analyzeBacklinks: vi.fn(),
@@ -281,6 +311,14 @@ function parsedContent(result: ToolResult) {
   return JSON.parse(result.content[0]?.text ?? "null") as unknown;
 }
 
+function readOnlyHintCount(configs: Map<string, { annotations: { readOnlyHint: boolean } }>) {
+  return [...configs.values()].filter((config) => config.annotations.readOnlyHint).length;
+}
+
+function sessionClientNote(readOnlyCount: number, totalCount: number) {
+  return `Clients that hide tools without readOnlyHint (for example connectors without a developer or write mode) show ${readOnlyCount} of ${totalCount} tools; a missing write tool is a client setting, not a token limit.`;
+}
+
 function missingRequiredDescriptions(schema: Record<string, unknown>, path: string): string[] {
   const properties =
     schema.properties && typeof schema.properties === "object"
@@ -334,6 +372,10 @@ describe("registerBisibilityTools", () => {
     expect(configs.get("list_keywords")?.inputSchema).toHaveProperty("project_id");
     expect(configs.get("run_rank_check")?.description).toContain("may incur provider cost");
     expect(configs.get("run_rank_check")?.description).toContain("explicit user approval");
+    expect(configs.get("run_rank_check")?.description).toContain(
+      "queued response contains an rcr_ run ID",
+    );
+    expect(configs.get("run_rank_check")?.description).not.toContain("runs synchronously");
   });
 
   it("publishes closed Domain Overview schemas through tools/list", async () => {
@@ -374,7 +416,7 @@ describe("registerBisibilityTools", () => {
   it("uses the same unprefixed snake_case names as the built-in HTTP server", () => {
     const { tools } = createToolHarness();
 
-    expect([...tools]).toHaveLength(91);
+    expect([...tools]).toHaveLength(105);
     expect([...tools.keys()].every((name) => /^[a-z][a-z0-9_]*$/.test(name))).toBe(true);
     expect([...tools.keys()].some((name) => name.startsWith("bisibility_"))).toBe(false);
   });
@@ -402,6 +444,10 @@ describe("registerBisibilityTools", () => {
     }
 
     expect(configs.get("connect_provider")?.description).toContain("primary=true alias");
+    expect(configs.get("connect_provider")?.description).toContain(
+      "0 promotes the provider to primary and renumbers the rest; omitted keeps a reconnected " +
+        "provider's place and appends a new one",
+    );
     expect(configs.get("update_provider_settings")?.description).toContain(
       "primary is a deprecated compatibility alias",
     );
@@ -433,7 +479,10 @@ describe("registerBisibilityTools", () => {
       "resend_",
     ];
 
-    expect(tools.size).toBe(33);
+    expect(tools.size).toBe(42);
+    expect(tools.has("estimate_backlinks_cost")).toBe(true);
+    expect(tools.has("estimate_domain_overview_cost")).toBe(true);
+    expect(tools.has("estimate_keyword_research_cost")).toBe(true);
     expect(
       [...tools.keys()].filter((name) =>
         mutatingPrefixes.some((prefix) => name.startsWith(prefix)),
@@ -450,14 +499,20 @@ describe("registerBisibilityTools", () => {
   it("registers only tools from selected API-domain toolsets", () => {
     const { tools } = createToolHarness({ toolsets: ["rank-history"] });
 
-    expect([...tools.keys()]).toEqual(["get_rank_history", "export_rank_history"]);
+    expect([...tools.keys()]).toEqual([
+      "get_session_profile",
+      "get_rank_history",
+      "export_rank_history",
+    ]);
   });
 
   it("registers the Domain Overview toolset independently", () => {
     const { tools } = createToolHarness({ toolsets: ["domain-overview"] });
 
     expect([...tools.keys()]).toEqual([
+      "get_session_profile",
       "analyze_domain_overview",
+      "estimate_domain_overview_cost",
       "load_domain_overview_history",
       "load_domain_overview_keywords",
       "load_domain_overview_pages",
@@ -472,12 +527,59 @@ describe("registerBisibilityTools", () => {
     });
 
     expect([...tools.keys()]).toEqual([
+      "get_session_profile",
       "search_locations",
       "list_keywords",
+      "estimate_keyword_research_cost",
       "get_keyword",
       "get_rank_history",
       "export_rank_history",
     ]);
+  });
+
+  it("reports the effective session profile in read-only mode", async () => {
+    const { callTool, configs, tools } = createToolHarness({ readOnly: true });
+
+    const profile = parsedContent(await callTool("get_session_profile"));
+
+    expect(profile).toEqual({
+      canonical_names: [...tools.keys()],
+      client_note: sessionClientNote(readOnlyHintCount(configs), tools.size),
+      read_only: true,
+      tool_count: tools.size,
+      tool_names: [...tools.keys()],
+      toolsets: [...BISIBILITY_MCP_TOOLSETS],
+    });
+  });
+
+  it("lists exactly the filtered toolsets under a toolset filter", async () => {
+    const selectedToolsets = ["keywords", "checks"] satisfies BisibilityMcpToolset[];
+    const { callTool, configs, tools } = createToolHarness({ toolsets: selectedToolsets });
+
+    const profile = parsedContent(await callTool("get_session_profile"));
+
+    expect(profile).toEqual({
+      canonical_names: [...tools.keys()],
+      client_note: sessionClientNote(readOnlyHintCount(configs), tools.size),
+      read_only: false,
+      tool_count: tools.size,
+      tool_names: [...tools.keys()],
+      toolsets: selectedToolsets,
+    });
+  });
+
+  it("computes client_note counts from the registered read-only and total counts", async () => {
+    const { callTool, configs, tools } = createToolHarness();
+
+    const profile = parsedContent(await callTool("get_session_profile")) as {
+      client_note: string;
+      tool_count: number;
+    };
+
+    expect(readOnlyHintCount(configs)).toBeLessThan(tools.size);
+    expect(profile.tool_count).toBe(tools.size);
+    expect(profile.client_note).toBe(sessionClientNote(readOnlyHintCount(configs), tools.size));
+    expect(profile.client_note).toContain("not a token limit.");
   });
 
   it("annotates read, write, and destructive tools from their classifications", () => {
@@ -502,6 +604,21 @@ describe("registerBisibilityTools", () => {
       destructiveHint: true,
       openWorldHint: false,
       readOnlyHint: false,
+    });
+    expect(configs.get("estimate_backlinks_cost")?.annotations).toEqual({
+      destructiveHint: false,
+      openWorldHint: false,
+      readOnlyHint: true,
+    });
+    expect(configs.get("estimate_domain_overview_cost")?.annotations).toEqual({
+      destructiveHint: false,
+      openWorldHint: false,
+      readOnlyHint: true,
+    });
+    expect(configs.get("estimate_keyword_research_cost")?.annotations).toEqual({
+      destructiveHint: false,
+      openWorldHint: false,
+      readOnlyHint: true,
     });
     expect(configs.get("list_ranked_keyword_suggestions")?.annotations).toEqual({
       destructiveHint: false,
@@ -544,6 +661,39 @@ describe("registerBisibilityTools", () => {
       "`analyze_domain_overview` with `estimate_only: true` and\n`max_cost_cents: 0`",
     );
     expect(readme).not.toContain("Every non-estimate Domain Overview call requires");
+  });
+
+  it("documents field truthfulness sentences in tool descriptions", () => {
+    const { configs } = createToolHarness();
+    const latestPositionSentence =
+      "latest_position is null after a failed check as well as when the domain is outside the " +
+      "requested depth; read latest_check and latest_successful_check to tell them apart.";
+    const errorCodeSentence =
+      "error_code is a stable reason (provider_billing, provider_auth, provider_rate_limited, " +
+      "provider_transient); retry only for provider_rate_limited or provider_transient.";
+
+    expect(configs.get("list_keywords")?.description).toContain(latestPositionSentence);
+    expect(configs.get("get_keyword")?.description).toContain(latestPositionSentence);
+    expect(configs.get("get_rank_check_result")?.description).toContain(errorCodeSentence);
+    expect(configs.get("get_rank_history")?.description).toContain(errorCodeSentence);
+    expect(configs.get("list_providers")?.description).toContain(
+      "status is the catalog state; connection_status says whether the project can use the provider.",
+    );
+    expect(configs.get("list_providers")?.description).toContain(
+      "Use it for integrations, data sources, and provider credentials status.",
+    );
+    expect(configs.get("list_keywords")?.description).toContain(
+      "Use it for rank positions, rank tracking, keyword rankings, and SERP position lookups.",
+    );
+    expect(configs.get("list_competitors")?.description).toContain(
+      "Use it for competitor analysis, competing sites, and rival rankings.",
+    );
+    expect(configs.get("list_search_performance_query_stats")?.description).toContain(
+      "query is an exact match unless query_match is contains; rows aggregate all countries and devices.",
+    );
+    expect(configs.get("get_capabilities")?.description).toContain(
+      "public catalog; for what this session can do call get_session_profile and get_project (readiness)",
+    );
   });
 
   it("returns JSON text content and structured content", async () => {
@@ -852,8 +1002,8 @@ describe("registerBisibilityTools", () => {
     expect(client.updateProject).not.toHaveBeenCalled();
   });
 
-  it("updates project defaults with schedule and market fields", async () => {
-    const { callTool, client } = createToolHarness();
+  it("updates project defaults with schedule, depth, and market fields", async () => {
+    const { callTool, client, configs } = createToolHarness();
     client.updateProjectDefaults.mockResolvedValue(projectDefaults());
 
     await callTool("update_project_defaults", {
@@ -864,6 +1014,7 @@ describe("registerBisibilityTools", () => {
       idempotency_key: "idem_defaults",
       jitter_minutes: 30,
       project_id: publicId("prj"),
+      serp_depth: 50,
       serp_stop_on_match: false,
       timezone: "Europe/Warsaw",
     });
@@ -882,6 +1033,7 @@ describe("registerBisibilityTools", () => {
         device: "desktop",
         frequency: "daily",
         jitter_minutes: 30,
+        serp_depth: 50,
         serp_stop_on_match: false,
         timezone: "Europe/Warsaw",
       },
@@ -892,6 +1044,10 @@ describe("registerBisibilityTools", () => {
       publicId("prj"),
       { frequency: "weekly", location_key: "US/California/Los Angeles" },
       undefined,
+    );
+    expect(configs.get("update_project_defaults")?.description).toContain(
+      "serp_depth and serp_stop_on_match are independent of the schedule and keep their stored " +
+        "values when omitted",
     );
   });
 
@@ -999,6 +1155,7 @@ describe("registerBisibilityTools", () => {
         connection_id: publicId("conn"),
         fresh: true,
         limit: 100,
+        max_cost_cents: 5,
         offset: 100,
         project_id: publicId("prj"),
       }),
@@ -1008,6 +1165,7 @@ describe("registerBisibilityTools", () => {
       connectionId: publicId("conn"),
       fresh: true,
       limit: 100,
+      maxCostCents: 5,
       offset: 100,
     });
     expect(configs.get("list_ranked_keyword_suggestions")?.description).toContain("$0.02");
@@ -1098,16 +1256,17 @@ describe("registerBisibilityTools", () => {
   it("analyzes backlinks and loads more rows with mapped defined options", async () => {
     const { callTool, client, configs } = createToolHarness();
     const analyzed = dataResponse(backlinksSnapshot());
+    const estimated = dataResponse(backlinksEstimate({ include_subdomains: false }));
     const loaded = dataResponse(
       backlinksSnapshot({
-        cost_cents: 1,
+        cost_cents: 3,
         fetched_row_count: 200,
         history: [],
         rows: [],
         summary: backlinksSnapshot().summary,
       }),
     );
-    client.analyzeBacklinks.mockResolvedValue(analyzed);
+    client.analyzeBacklinks.mockResolvedValueOnce(estimated).mockResolvedValue(analyzed);
     client.loadMoreBacklinkRows.mockResolvedValue(loaded);
 
     await expect(
@@ -1122,7 +1281,7 @@ describe("registerBisibilityTools", () => {
         target: "https://example.com/pricing",
         target_scope: "page",
       }),
-    ).resolves.toMatchObject({ structuredContent: analyzed });
+    ).resolves.toMatchObject({ structuredContent: estimated });
     await expect(
       callTool("analyze_backlinks", {
         project_id: publicId("prj"),
@@ -1197,6 +1356,145 @@ describe("registerBisibilityTools", () => {
     });
     expect(client.analyzeBacklinks).not.toHaveBeenCalled();
     expect(client.loadMoreBacklinkRows).not.toHaveBeenCalled();
+  });
+
+  it("forces estimateOnly on the free estimate tools even when the caller passes nothing", async () => {
+    const { callTool, client, configs } = createToolHarness();
+    const backlinksCostEstimate = dataResponse(backlinksEstimate());
+    const researchEstimate = keywordResearchEstimate();
+    const overviewEstimate = dataResponse({
+      cached: false,
+      estimate: true,
+      estimated_cost_cents: 6,
+      fresh_estimated_cost_cents: 6,
+      history_estimated_cost_cents: 12,
+      history_mode: "lazy",
+      keyword_page_estimated_cost_cents: 2,
+      language_code: "en",
+      location_code: 2840,
+      page_page_estimated_cost_cents: 2,
+      scope: "root",
+      target: "example.com",
+    });
+    client.analyzeBacklinks.mockResolvedValueOnce(backlinksCostEstimate);
+    client.researchKeywords.mockResolvedValueOnce(researchEstimate);
+    client.analyzeDomainOverview.mockResolvedValueOnce(overviewEstimate);
+
+    await expect(
+      callTool("estimate_backlinks_cost", {
+        project_id: publicId("prj"),
+        target: "example.com",
+      }),
+    ).resolves.toMatchObject({ structuredContent: backlinksCostEstimate });
+    await expect(
+      callTool("estimate_keyword_research_cost", {
+        project_id: publicId("prj"),
+        seed: "rank tracker",
+      }),
+    ).resolves.toMatchObject({ structuredContent: researchEstimate });
+    await expect(
+      callTool("estimate_domain_overview_cost", {
+        language_code: "en",
+        location_code: 2840,
+        max_cost_cents: 0,
+        project_id: publicId("prj"),
+        target: "example.com",
+      }),
+    ).resolves.toMatchObject({ structuredContent: overviewEstimate });
+
+    expect(client.analyzeBacklinks).toHaveBeenCalledWith(publicId("prj"), {
+      estimateOnly: true,
+      target: "example.com",
+    });
+    expect(client.researchKeywords).toHaveBeenCalledWith(publicId("prj"), {
+      estimateOnly: true,
+      seed: "rank tracker",
+    });
+    expect(client.analyzeDomainOverview).toHaveBeenCalledWith(publicId("prj"), {
+      estimateOnly: true,
+      languageCode: "en",
+      locationCode: 2840,
+      maxCostCents: 0,
+      target: "example.com",
+    });
+    for (const name of [
+      "estimate_backlinks_cost",
+      "estimate_domain_overview_cost",
+      "estimate_keyword_research_cost",
+    ]) {
+      expect(configs.get(name)?.description).toContain("Free.");
+      expect(configs.get(name)?.description).toContain("the paid operation is");
+    }
+  });
+
+  it("passes cost-only estimate payloads through without report fields", async () => {
+    const { callTool, client } = createToolHarness();
+    client.analyzeBacklinks.mockResolvedValueOnce(dataResponse(backlinksEstimate()));
+    client.researchKeywords.mockResolvedValueOnce(keywordResearchEstimate());
+
+    const backlinksResult = await callTool("estimate_backlinks_cost", {
+      project_id: publicId("prj"),
+      target: "example.com",
+    });
+    const researchResult = await callTool("estimate_keyword_research_cost", {
+      project_id: publicId("prj"),
+      seed: "rank tracker",
+    });
+
+    const backlinks = (parsedContent(backlinksResult) as { data: Record<string, unknown> }).data;
+    expect(backlinks).toMatchObject({
+      cached: false,
+      cached_until: null,
+      cost_cents: 7,
+      estimate: true,
+      estimated_cost_cents: 7,
+      provider: "dataforseo",
+      target_scope: "site",
+    });
+    for (const field of [
+      "summary",
+      "history",
+      "rows",
+      "fetched_at",
+      "fetched_row_count",
+      "total_rows_available",
+    ]) {
+      expect(backlinks).not.toHaveProperty(field);
+    }
+
+    const research = parsedContent(researchResult) as Record<string, unknown>;
+    expect(research).toMatchObject({
+      cost_cents: 2,
+      estimate: true,
+      sources: [
+        { cached: false, cost_cents: 2, source: "related" },
+        { cached: false, cost_cents: 0, source: "suggestion" },
+      ],
+    });
+    for (const field of ["rows", "fetched_at", "total_count"]) {
+      expect(research).not.toHaveProperty(field);
+    }
+    for (const source of research.sources as Array<Record<string, unknown>>) {
+      for (const field of ["status", "returned", "reason"]) {
+        expect(source).not.toHaveProperty(field);
+      }
+    }
+  });
+
+  it("rejects estimate_only on the estimate tools as a schema error", async () => {
+    const { callTool, client } = createToolHarness();
+
+    const result = await callTool("estimate_backlinks_cost", {
+      estimate_only: false,
+      project_id: publicId("prj"),
+      target: "example.com",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(parsedContent(result)).toMatchObject({
+      error: { issues: expect.any(Array), name: "ZodError" },
+    });
+    expect(client.analyzeBacklinks).not.toHaveBeenCalled();
   });
 
   it("delegates Domain Overview tools with only defined camel-case SDK options", async () => {
@@ -1553,7 +1851,7 @@ describe("registerBisibilityTools", () => {
   });
 
   it("lists, enables, and disables sitemap monitors", async () => {
-    const { callTool, client } = createToolHarness();
+    const { callTool, client, configs } = createToolHarness();
     const monitor = {
       enabled: true,
       id: publicId("prj"),
@@ -1581,7 +1879,6 @@ describe("registerBisibilityTools", () => {
       project_id: publicId("prj"),
     });
     await callTool("disable_sitemap_monitor", {
-      monitor_id: publicId("prj"),
       project_id: publicId("prj"),
     });
 
@@ -1600,6 +1897,16 @@ describe("registerBisibilityTools", () => {
       { enabled: false },
       undefined,
     );
+
+    for (const name of ["enable_sitemap_monitor", "disable_sitemap_monitor"]) {
+      const schema = advertisedJsonSchema(configs.get(name)?.inputSchema as object);
+      const monitorId = (schema.properties as Record<string, Record<string, unknown>>).monitor_id;
+
+      expect(schema.required).toEqual(["project_id"]);
+      expect(monitorId).toMatchObject({
+        description: expect.stringContaining("so it defaults to project_id"),
+      });
+    }
   });
 
   it("adds keywords with defaults and forwards idempotency keys", async () => {
@@ -1781,6 +2088,7 @@ describe("registerBisibilityTools", () => {
     await callTool("run_rank_check", {
       idempotency_key: "idem_check",
       keyword_id: publicId("kw"),
+      max_cost_cents: 5,
       provider_id: "dataforseo",
     });
     await callTool("run_rank_check", {
@@ -1808,7 +2116,7 @@ describe("registerBisibilityTools", () => {
 
     expect(client.runRankCheck).toHaveBeenCalledWith(
       publicId("kw"),
-      { provider_id: "dataforseo" },
+      { max_cost_cents: 5, provider_id: "dataforseo" },
       { idempotencyKey: "idem_check" },
     );
     expect(client.runRankCheck).toHaveBeenCalledWith(publicId("kw"), undefined, undefined);
@@ -2337,7 +2645,7 @@ describe("registerBisibilityTools", () => {
 
   it("manages provider connections and settings", async () => {
     const { callTool, client } = createToolHarness();
-    const testResult = { balance: 15.25, message: "Connected", ok: true };
+    const testResult = { balance: 15.25, message: "Connected.", ok: true };
     client.listProviders.mockResolvedValueOnce(listResponse([provider()], "providers_next"));
     client.connectProvider.mockResolvedValue(providerConnection());
     client.testProviderConnection.mockResolvedValue(testResult);
@@ -2461,11 +2769,14 @@ describe("registerBisibilityTools", () => {
   });
 
   it("connects and tests self-hosted analytics providers with an endpoint credential", async () => {
-    const { callTool, client } = createToolHarness();
+    const { callTool, client, configs } = createToolHarness();
     client.connectProvider.mockResolvedValueOnce(
       providerConnection({ kind: "analytics", provider: "plausible" }),
     );
-    client.testProviderConnection.mockResolvedValueOnce({ message: "Connected", ok: true });
+    client.testProviderConnection.mockResolvedValueOnce({
+      message: "Connected \u00b7 example.com.",
+      ok: true,
+    });
 
     await callTool("connect_provider", {
       credentials: {
@@ -2497,6 +2808,19 @@ describe("registerBisibilityTools", () => {
     expect(client.testProviderConnection).toHaveBeenCalledWith(publicId("prj"), "plausible", {
       credentials: { endpoint: "https://plausible.example.com/api" },
     });
+
+    const siteCredentialSentence =
+      "credentials.login is the site domain configured in Plausible (site_id";
+
+    expect(configs.get("connect_provider")?.description).toContain(siteCredentialSentence);
+    expect(configs.get("connect_provider")?.description).toContain(
+      "defaults to the project domain when omitted; credentials.api_key is the Stats API token",
+    );
+    expect(configs.get("test_provider_connection")?.description).toContain(siteCredentialSentence);
+    expect(configs.get("test_provider_connection")?.description).toContain(
+      'A successful test returns message "Connected." or "Connected \u00b7 <detail>." for ' +
+        "analytics providers.",
+    );
   });
 
   it("forwards newly registered provider ids for server-side validation", async () => {

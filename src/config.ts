@@ -15,6 +15,8 @@ export interface BisibilityMcpEnv {
 
 export const BISIBILITY_MCP_TOOLSETS = [
   "account",
+  "agent-reports",
+  "ai-visibility",
   "alerts",
   "analytics",
   "backlinks",
@@ -23,12 +25,15 @@ export const BISIBILITY_MCP_TOOLSETS = [
   "domain-overview",
   "keywords",
   "notifications",
+  "project-context",
   "projects",
+  "prompt-explorer",
   "providers",
   "rank-history",
   "saved-keywords",
   "saved-views",
   "signals",
+  "site-audits",
   "sitemaps",
   "system",
   "team",
@@ -140,11 +145,15 @@ export function createBisibilityClientFromEnv(
   overrides: Omit<BisibilityClientConfig, "apiKey" | "baseUrl"> = {},
 ) {
   const config = readBisibilityMcpConfig(env);
+  // Declares the MCP server as the request origin for usage reporting; explicit overrides win.
+  const headers = new Headers(overrides.headers);
+  if (!headers.has("X-Bisibility-Source")) headers.set("X-Bisibility-Source", "mcp");
 
   return new BisibilityClient({
     ...overrides,
     apiKey: config.apiKey,
     baseUrl: config.baseUrl,
+    headers: Object.fromEntries(headers),
     ...(config.projectId ? { projectId: config.projectId } : {}),
   });
 }

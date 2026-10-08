@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*-rc.*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    if: >-
+      github.repository == 'CorgiCorner/bisibility-mcp' &&
+      !(github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'chore(release): v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout public package
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Pin npm and install registry dependencies
+        run: |
+          (cd "$RUNNER_TEMP" && npm install --global npm@10.9.3)
+          npm ci
+      - name: Check registry package and MCPB bundle
+        run: |
+          npm audit --audit-level=high
+          npm run build
+          npm run check
+          npm run build:mcpb
+          npm pack --dry-run --ignore-scripts

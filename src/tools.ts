@@ -15,6 +15,7 @@ import type {
   CreateSignalInput,
   CreateTeamInviteInput,
   CreateWebhookInput,
+  EstimateDomainOverviewOptions,
   ExportRankHistoryJsonOptions,
   GetCostEstimateOptions,
   GetKeywordMetricsInput,
@@ -52,7 +53,19 @@ import type {
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type * as z from "zod/v4";
 
-import type { BisibilityMcpToolset } from "./config.js";
+import { BISIBILITY_MCP_TOOLSETS, type BisibilityMcpToolset } from "./config.js";
+import {
+  analyzeAiVisibilityInputSchema,
+  compareAiPromptsInputSchema,
+  createAgentReportInputSchema,
+  getAgentReportInputSchema,
+  getProjectContextInputSchema,
+  getSiteAuditInputSchema,
+  listAgentReportsInputSchema,
+  listSiteAuditsInputSchema,
+  runSiteAuditInputSchema,
+  updateProjectContextInputSchema,
+} from "./research-workspace-schemas.js";
 import { errorToolResult, jsonToolResult } from "./result.js";
 import {
   addCompetitorInputSchema,
@@ -76,6 +89,9 @@ import {
   deleteSavedViewInputSchema,
   deleteWebhookInputSchema,
   emptyInputSchema,
+  estimateBacklinksCostInputSchema,
+  estimateDomainOverviewCostInputSchema,
+  estimateKeywordResearchCostInputSchema,
   exportRankHistoryInputSchema,
   getCostEstimateInputSchema,
   getKeywordInputSchema,
@@ -148,6 +164,16 @@ import {
 
 export type BisibilityToolClient = Pick<
   BisibilityClient,
+  | "getProjectContext"
+  | "updateProjectContext"
+  | "listAgentReports"
+  | "createAgentReport"
+  | "getAgentReport"
+  | "analyzeAiVisibility"
+  | "compareAiPrompts"
+  | "runSiteAudit"
+  | "listSiteAudits"
+  | "getSiteAudit"
   | "addCompetitor"
   | "addKeywords"
   | "analyzeBacklinks"
@@ -246,6 +272,35 @@ export interface RegisterBisibilityToolsOptions {
   toolsets?: readonly BisibilityMcpToolset[];
 }
 
+export interface BisibilityMcpSessionProfile {
+  canonical_names: string[];
+  client_note: string;
+  read_only: boolean;
+  tool_count: number;
+  tool_names: string[];
+  toolsets: BisibilityMcpToolset[];
+}
+
+type BisibilitySessionOptions = {
+  readOnly: boolean;
+  toolsets?: readonly BisibilityMcpToolset[];
+};
+
+function sessionProfile(
+  registered: readonly string[],
+  readOnlyRegistered: readonly string[],
+  options: BisibilitySessionOptions,
+): BisibilityMcpSessionProfile {
+  return {
+    canonical_names: [...registered],
+    client_note: `Clients that hide tools without readOnlyHint (for example connectors without a developer or write mode) show ${readOnlyRegistered.length} of ${registered.length} tools; a missing write tool is a client setting, not a token limit.`,
+    read_only: options.readOnly,
+    tool_count: registered.length,
+    tool_names: [...registered],
+    toolsets: options.toolsets ? [...options.toolsets] : [...BISIBILITY_MCP_TOOLSETS],
+  };
+}
+
 type ToolSchema = z.ZodObject<z.ZodRawShape>;
 type ParsedToolInput<TSchema extends ToolSchema> = z.output<TSchema>;
 type ToolExecutor<TSchema extends ToolSchema> = (
@@ -308,6 +363,7 @@ function listRankedKeywordSuggestionsOptions(
     connectionId: input.connection_id,
     fresh: input.fresh,
     limit: input.limit,
+    maxCostCents: input.max_cost_cents,
     offset: input.offset,
   }) as ListRankedKeywordSuggestionsOptions;
 }
@@ -327,12 +383,39 @@ function researchKeywordsOptions(
   }) as ResearchKeywordsOptions;
 }
 
+function estimateKeywordResearchOptions(
+  input: ParsedToolInput<typeof estimateKeywordResearchCostInputSchema>,
+): ResearchKeywordsOptions {
+  return omitUndefined({
+    estimateOnly: true,
+    includeClickstream: input.include_clickstream,
+    maxCostCents: input.max_cost_cents,
+    mode: input.mode,
+    resultLimit: input.result_limit,
+    seed: input.seed,
+  }) as ResearchKeywordsOptions;
+}
+
 function analyzeBacklinksOptions(
   input: ParsedToolInput<typeof analyzeBacklinksInputSchema>,
 ): AnalyzeBacklinksOptions {
   return omitUndefined({
     estimateOnly: input.estimate_only,
     fresh: input.fresh,
+    includeSubdomains: input.include_subdomains,
+    maxCostCents: input.max_cost_cents,
+    mode: input.mode,
+    resultLimit: input.result_limit,
+    target: input.target,
+    targetScope: input.target_scope,
+  }) as AnalyzeBacklinksOptions;
+}
+
+function estimateBacklinksOptions(
+  input: ParsedToolInput<typeof estimateBacklinksCostInputSchema>,
+): AnalyzeBacklinksOptions {
+  return omitUndefined({
+    estimateOnly: true,
     includeSubdomains: input.include_subdomains,
     maxCostCents: input.max_cost_cents,
     mode: input.mode,
@@ -367,6 +450,21 @@ function analyzeDomainOverviewOptions(
     scopeOverride: input.scope_override,
     target: input.target,
   }) as AnalyzeDomainOverviewOptions;
+}
+
+function estimateDomainOverviewOptions(
+  input: ParsedToolInput<typeof estimateDomainOverviewCostInputSchema>,
+): EstimateDomainOverviewOptions {
+  return omitUndefined({
+    estimateOnly: true,
+    keywordLimit: input.keyword_limit,
+    languageCode: input.language_code,
+    locationCode: input.location_code,
+    maxCostCents: input.max_cost_cents,
+    pageLimit: input.page_limit,
+    scopeOverride: input.scope_override,
+    target: input.target,
+  }) as EstimateDomainOverviewOptions;
 }
 
 function domainOverviewHistoryOptions(
@@ -635,9 +733,24 @@ function projectDefaultsPayload(
     frequency: input.frequency,
     jitter_minutes: input.jitter_minutes,
     location_key: input.location_key,
+    serp_depth: input.serp_depth,
     serp_stop_on_match: input.serp_stop_on_match,
     timezone: input.timezone,
   }) as ProjectDefaultsPatch;
+}
+
+function sitemapMonitorId(input: ParsedToolInput<typeof updateSitemapMonitorInputSchema>) {
+  return input.monitor_id ?? input.project_id;
+}
+
+function runRankCheckInput(
+  input: ParsedToolInput<typeof runRankCheckInputSchema>,
+): RunRankCheckInput | undefined {
+  const body = omitUndefined({
+    max_cost_cents: input.max_cost_cents,
+    provider_id: input.provider_id,
+  }) as RunRankCheckInput;
+  return Object.keys(body).length ? body : undefined;
 }
 
 function runRankCheckOptions(
@@ -872,15 +985,14 @@ function toolHandler<TSchema extends ToolSchema>(schema: TSchema, execute: ToolE
 
 function registerTool<TSchema extends ToolSchema>(
   registration: {
-    options: {
-      readOnly: boolean;
-      toolsets?: readonly BisibilityMcpToolset[];
-    };
+    options: BisibilitySessionOptions;
+    record: (name: string, access: "read" | "write") => void;
     server: McpServer;
   },
   name: string,
   config: {
     access: "read" | "write";
+    always?: boolean;
     description: string;
     destructive?: boolean;
     group: BisibilityMcpToolset;
@@ -892,11 +1004,14 @@ function registerTool<TSchema extends ToolSchema>(
 ) {
   if (
     (registration.options.readOnly && config.access === "write") ||
-    (registration.options.toolsets && !registration.options.toolsets.includes(config.group))
+    (!config.always &&
+      registration.options.toolsets &&
+      !registration.options.toolsets.includes(config.group))
   ) {
     return;
   }
 
+  registration.record(name, config.access);
   registration.server.registerTool(
     name,
     {
@@ -914,6 +1029,9 @@ function registerTool<TSchema extends ToolSchema>(
 }
 
 const OPEN_WORLD_TOOL_NAMES = new Set([
+  "analyze_ai_visibility",
+  "compare_ai_prompts",
+  "run_site_audit",
   "analyze_backlinks",
   "analyze_domain_overview",
   "connect_provider",
@@ -934,15 +1052,40 @@ const OPEN_WORLD_TOOL_NAMES = new Set([
 export function registerBisibilityTools(
   server: McpServer,
   options: RegisterBisibilityToolsOptions,
-) {
+): BisibilityMcpSessionProfile {
   const { client } = options;
+  const registered: string[] = [];
+  const readOnlyRegistered: string[] = [];
   const registration = {
     options: {
       readOnly: options.readOnly ?? false,
       ...(options.toolsets ? { toolsets: options.toolsets } : {}),
     },
+    record: (name: string, access: "read" | "write") => {
+      registered.push(name);
+      if (access === "read") {
+        readOnlyRegistered.push(name);
+      }
+    },
     server,
   };
+
+  registerTool(
+    registration,
+    "get_session_profile",
+    {
+      access: "read",
+      always: true,
+      group: "system",
+      description:
+        "Report the effective profile of this MCP session: read_only, the active toolsets, " +
+        "tool_count, tool_names, canonical_names, and client_note. Answered locally from this " +
+        "server's registration; no REST call.",
+      inputSchema: emptyInputSchema,
+      title: "Get session profile",
+    },
+    async () => sessionProfile(registered, readOnlyRegistered, registration.options),
+  );
 
   registerTool(
     registration,
@@ -963,7 +1106,9 @@ export function registerBisibilityTools(
     {
       access: "read",
       group: "system",
-      description: "List the public bisibility API capabilities exposed for agent workflows.",
+      description:
+        "List the public bisibility API capabilities exposed for agent workflows. public catalog; " +
+        "for what this session can do call get_session_profile and get_project (readiness)",
       inputSchema: emptyInputSchema,
       title: "Get API capabilities",
     },
@@ -1162,11 +1307,13 @@ export function registerBisibilityTools(
       access: "write",
       group: "projects",
       description:
-        "Update the project default rank-check schedule and SERP market. The schedule is " +
-        "replaced as a whole: omitted schedule fields reset to their defaults (jitter 60, " +
-        "timezone UTC, no cron). Provide country and device together, or a " +
-        "location_key, to move the default SERP market. Use search_locations and " +
-        "pass its location_key verbatim to preserve the exact location-language pair.",
+        "Update the project default rank-check schedule, SERP depth, and SERP market. The " +
+        "schedule is replaced as a whole: omitted schedule fields (frequency, cron_expression, " +
+        "jitter_minutes, timezone) reset to their defaults (jitter 60, timezone UTC, no cron). " +
+        "serp_depth and serp_stop_on_match are independent of the schedule and keep their " +
+        "stored values when omitted. Provide country and device together, or a location_key, to " +
+        "move the default SERP market. Use search_locations and pass its location_key verbatim " +
+        "to preserve the exact location-language pair.",
       inputSchema: updateProjectDefaultsInputSchema,
       title: "Update project defaults",
     },
@@ -1185,8 +1332,13 @@ export function registerBisibilityTools(
       access: "read",
       group: "keywords",
       description:
-        "List keywords for a project with pagination, search, filters, and sorting. Each keyword " +
-        "includes location_key, language_code, and language_label for its exact market pair.",
+        "List the tracked keywords (search terms) of a project with their current rankings: " +
+        "latest_position, previous_position, ranking_url, target URL, tags, schedule, and " +
+        "market. Supports pagination, search, filters, and sorting. Use it for rank positions, " +
+        "rank tracking, keyword rankings, and SERP position lookups. Each keyword includes " +
+        "location_key, language_code, and language_label for its exact market pair. " +
+        "latest_position is null after a failed check as well as when the domain is outside the " +
+        "requested depth; read latest_check and latest_successful_check to tell them apart.",
       inputSchema: listKeywordsInputSchema,
       title: "List project keywords",
     },
@@ -1202,7 +1354,8 @@ export function registerBisibilityTools(
       description:
         "Paid provider lookup on the project's own DataForSEO account, about $0.02 per " +
         "100-keyword page on a cache miss. Results are cached for 12 hours and shared with " +
-        "the UI and API. already_tracked marks keywords the project tracks.",
+        "the UI and API. already_tracked marks keywords the project tracks. Set max_cost_cents to " +
+        "have the server refuse a cache miss whose estimate is higher.",
       inputSchema: listRankedKeywordSuggestionsInputSchema,
       title: "List ranked keyword suggestions",
     },
@@ -1224,13 +1377,29 @@ export function registerBisibilityTools(
         "account. When cost matters, call with estimate_only first for a free dry run, then use " +
         "max_cost_cents as a best-effort request guard. Approximate per-source pricing comes " +
         "from the current rate card exposed by get_provider_rates. Send one seed per " +
-        "call. Results are cached for 12 hours and shared with the API and future UI. " +
+        "call. Results are cached for 12 hours and shared with the API and UI. " +
         "Clickstream-refined volumes double provider cost. already_tracked marks keywords the " +
         "project tracks.",
       inputSchema: researchKeywordsInputSchema,
       title: "Research keywords",
     },
     async (input) => client.researchKeywords(input.project_id, researchKeywordsOptions(input)),
+  );
+
+  registerTool(
+    registration,
+    "estimate_keyword_research_cost",
+    {
+      access: "read",
+      group: "keywords",
+      description:
+        "Free. Returns the cost and eligibility of keyword research without calling a " +
+        "provider; the paid operation is research_keywords.",
+      inputSchema: estimateKeywordResearchCostInputSchema,
+      title: "Estimate keyword research cost",
+    },
+    async (input) =>
+      client.researchKeywords(input.project_id, estimateKeywordResearchOptions(input)),
   );
 
   registerTool(
@@ -1249,6 +1418,21 @@ export function registerBisibilityTools(
       title: "Analyze backlinks",
     },
     async (input) => client.analyzeBacklinks(input.project_id, analyzeBacklinksOptions(input)),
+  );
+
+  registerTool(
+    registration,
+    "estimate_backlinks_cost",
+    {
+      access: "read",
+      group: "backlinks",
+      description:
+        "Free. Returns the cost and eligibility of a backlinks analysis without calling a " +
+        "provider; the paid operation is analyze_backlinks.",
+      inputSchema: estimateBacklinksCostInputSchema,
+      title: "Estimate backlinks cost",
+    },
+    async (input) => client.analyzeBacklinks(input.project_id, estimateBacklinksOptions(input)),
   );
 
   registerTool(
@@ -1294,6 +1478,22 @@ export function registerBisibilityTools(
         estimateOnly: false,
       });
     },
+  );
+
+  registerTool(
+    registration,
+    "estimate_domain_overview_cost",
+    {
+      access: "read",
+      group: "domain-overview",
+      description:
+        "Free. Returns the cost and eligibility of a Domain Overview analysis without calling " +
+        "a provider; the paid operation is analyze_domain_overview.",
+      inputSchema: estimateDomainOverviewCostInputSchema,
+      title: "Estimate domain overview cost",
+    },
+    async (input) =>
+      client.analyzeDomainOverview(input.project_id, estimateDomainOverviewOptions(input)),
   );
 
   registerTool(
@@ -1369,7 +1569,7 @@ export function registerBisibilityTools(
         "max_cost_cents as a best-effort request guard. Approximate pricing per 100 fetched " +
         "keywords comes from the current rate card exposed by get_provider_rates. " +
         "Batches contain up to 700 keywords and cache each keyword for 12 hours, shared with the " +
-        "API and future UI. Clickstream-refined volumes double provider cost.",
+        "API and UI. Clickstream-refined volumes double provider cost.",
       inputSchema: getKeywordMetricsInputSchema,
       title: "Get keyword metrics",
     },
@@ -1401,7 +1601,9 @@ export function registerBisibilityTools(
       group: "keywords",
       description:
         "Get a keyword and its latest rank position by keyword id, including location_key, " +
-        "language_code, and language_label for its exact market pair.",
+        "language_code, and language_label for its exact market pair. latest_position is null " +
+        "after a failed check as well as when the domain is outside the requested depth; read " +
+        "latest_check and latest_successful_check to tell them apart.",
       inputSchema: getKeywordInputSchema,
       title: "Get keyword",
     },
@@ -1491,9 +1693,11 @@ export function registerBisibilityTools(
       description:
         "Run a provider-backed rank check for one keyword. Requires write access and may incur " +
         "provider cost. Ask for explicit user approval immediately before calling; this server " +
-        "cannot enforce the client's confirmation UI. By default the check runs synchronously " +
-        "and returns the completed result. Set async to true to enqueue the check and return a " +
-        "running rank check immediately; poll it with get_rank_check_result.",
+        "cannot enforce the client's confirmation UI. The deployment selects inline or queued execution. " +
+        "A queued response contains an rcr_ run ID, not a check_ ID. Follow get_rank_history " +
+        "for that run_id until terminal, then use its check_ ID with get_rank_check_result. " +
+        "The async option only requests an early response. Set max_cost_cents to " +
+        "have the server refuse the check when its preflight estimate is higher.",
       inputSchema: runRankCheckInputSchema,
       title: "Run rank check",
     },
@@ -1501,7 +1705,7 @@ export function registerBisibilityTools(
       client.runRankCheck(
         input.keyword_id,
         // MCP provider ids are registry-driven and intentionally validated by the server.
-        input.provider_id ? ({ provider_id: input.provider_id } as RunRankCheckInput) : undefined,
+        runRankCheckInput(input),
         runRankCheckOptions(input),
       ),
   );
@@ -1513,7 +1717,9 @@ export function registerBisibilityTools(
       access: "read",
       group: "rank-history",
       description:
-        "List historical rank checks for a keyword with date, status, and pagination filters.",
+        "List historical rank checks for a keyword with date, status, and pagination filters. " +
+        "error_code is a stable reason (provider_billing, provider_auth, provider_rate_limited, " +
+        "provider_transient); retry only for provider_rate_limited or provider_transient.",
       inputSchema: getRankHistoryInputSchema,
       title: "Get rank history",
     },
@@ -1568,7 +1774,7 @@ export function registerBisibilityTools(
     async (input) =>
       client.updateSitemapMonitor(
         input.project_id,
-        input.monitor_id,
+        sitemapMonitorId(input),
         { enabled: true },
         requestOptions(input),
       ),
@@ -1587,7 +1793,7 @@ export function registerBisibilityTools(
     async (input) =>
       client.updateSitemapMonitor(
         input.project_id,
-        input.monitor_id,
+        sitemapMonitorId(input),
         { enabled: false },
         requestOptions(input),
       ),
@@ -1599,7 +1805,10 @@ export function registerBisibilityTools(
     {
       access: "read",
       group: "checks",
-      description: "Get one rank check result by check id.",
+      description:
+        "Get one rank check result by check id. error_code is a stable reason (provider_billing, " +
+        "provider_auth, provider_rate_limited, provider_transient); retry only for " +
+        "provider_rate_limited or provider_transient.",
       inputSchema: getRankCheckResultInputSchema,
       title: "Get rank check result",
     },
@@ -1670,7 +1879,8 @@ export function registerBisibilityTools(
       group: "analytics",
       description:
         "Fetch live query statistics from one of the project's own connected search-performance " +
-        "accounts. Provider rate limits and reauthorization rules apply.",
+        "accounts. Provider rate limits and reauthorization rules apply. query is an exact match " +
+        "unless query_match is contains; rows aggregate all countries and devices.",
       inputSchema: listSearchPerformanceQueryStatsInputSchema,
       title: "List search-performance query stats",
     },
@@ -2102,7 +2312,12 @@ export function registerBisibilityTools(
     {
       access: "read",
       group: "providers",
-      description: "List provider connection options and status for a project.",
+      description:
+        "List the data provider connections of a project: SERP rank-check providers " +
+        "(dataforseo, serpapi) and analytics integrations (gsc, ga4, plausible), with " +
+        "connection status, priority, and enabled state. Use it for integrations, data sources, " +
+        "and provider credentials status. status is the catalog state; connection_status says " +
+        "whether the project can use the provider.",
       inputSchema: listProvidersInputSchema,
       title: "List providers",
     },
@@ -2117,9 +2332,14 @@ export function registerBisibilityTools(
       group: "providers",
       description:
         "Connect or update credentials for a project provider. SERP providers are dataforseo " +
-        "and serpapi; analytics providers are ga4, gsc, and plausible. Self-hosted providers " +
-        "such as Plausible accept an optional credentials.endpoint base URL. Use priority for " +
-        "ordering; the deprecated primary=true alias promotes priority 0 and primary=false is a no-op.",
+        "and serpapi; analytics providers are ga4, gsc, and plausible. For Plausible, " +
+        "credentials.login is the site domain configured in Plausible (site_id, for example " +
+        "example.com) and defaults to the project domain when omitted; credentials.api_key is " +
+        "the Stats API token. Self-hosted providers such as Plausible accept an optional " +
+        "credentials.endpoint base URL. Use priority for ordering (0 promotes the provider to " +
+        "primary and renumbers the rest; omitted keeps a reconnected provider's place and " +
+        "appends a new one); the deprecated primary=true alias promotes priority 0 and " +
+        "primary=false is a no-op.",
       inputSchema: providerConnectionInputSchema,
       title: "Connect provider",
     },
@@ -2139,8 +2359,12 @@ export function registerBisibilityTools(
       access: "write",
       group: "providers",
       description:
-        "Test provider credentials or the saved provider connection. Self-hosted providers " +
-        "such as Plausible accept an optional credentials.endpoint base URL.",
+        "Test provider credentials or the saved provider connection. For Plausible, " +
+        "credentials.login is the site domain configured in Plausible (site_id) and defaults to " +
+        "the project domain when omitted; credentials.api_key is the Stats API token. " +
+        "Self-hosted providers such as Plausible accept an optional credentials.endpoint base " +
+        'URL. A successful test returns message "Connected." or "Connected \u00b7 <detail>." ' +
+        "for analytics providers.",
       inputSchema: testProviderConnectionInputSchema,
       title: "Test provider connection",
     },
@@ -2346,7 +2570,10 @@ export function registerBisibilityTools(
     {
       access: "read",
       group: "competitors",
-      description: "List tracked competitors, market data, and suggestions for a project.",
+      description:
+        "List the competitor domains tracked for a project (rival sites, competing domains) " +
+        "with their market data such as share of voice and positions, plus competitor " +
+        "suggestions. Use it for competitor analysis, competing sites, and rival rankings.",
       inputSchema: listCompetitorsInputSchema,
       title: "List competitors",
     },
@@ -2460,4 +2687,195 @@ export function registerBisibilityTools(
     async (input) =>
       client.revokeMigrationToken(input.project_id, input.token_id, requestOptions(input)),
   );
+
+  registerTool(
+    registration,
+    "get_project_context",
+    {
+      access: "read",
+      group: "project-context",
+      description:
+        "Read the saved business, audience, products, goals and agent rules for this project.",
+      inputSchema: getProjectContextInputSchema,
+      publishClosedSchema: true,
+      title: "Get project context",
+    },
+    async (input) => client.getProjectContext(input.project_id),
+  );
+
+  registerTool(
+    registration,
+    "update_project_context",
+    {
+      access: "write",
+      group: "project-context",
+      description:
+        "Replace all five context fields. Requires project write scope and a member role.",
+      inputSchema: updateProjectContextInputSchema,
+      publishClosedSchema: true,
+      title: "Update project context",
+    },
+    async (input) => {
+      const { project_id, idempotency_key, ...payload } = input;
+      return client.updateProjectContext(project_id, payload, requestOptions({ idempotency_key }));
+    },
+  );
+
+  registerTool(
+    registration,
+    "list_agent_reports",
+    {
+      access: "read",
+      group: "agent-reports",
+      description:
+        "Read saved project analyses. Results are restricted to the project and its members.",
+      inputSchema: listAgentReportsInputSchema,
+      publishClosedSchema: true,
+      title: "List agent reports",
+    },
+    async (input) =>
+      client.listAgentReports(input.project_id, {
+        ...(input.kind !== undefined ? { kind: input.kind } : {}),
+        ...(input.limit !== undefined ? { limit: input.limit } : {}),
+        ...(input.cursor !== undefined ? { cursor: input.cursor } : {}),
+      }),
+  );
+
+  registerTool(
+    registration,
+    "create_agent_report",
+    {
+      access: "write",
+      group: "agent-reports",
+      description:
+        "Save an agent analysis with provenance. Its deep link inherits existing project access controls. Producer kinds site_audit, ai_visibility and prompt_explorer are reserved and rejected here.",
+      inputSchema: createAgentReportInputSchema,
+      publishClosedSchema: true,
+      title: "Create agent report",
+    },
+    async (input) => {
+      const { project_id, idempotency_key, ...payload } = input;
+      const { provenance, ...required } = payload;
+      return client.createAgentReport(
+        project_id,
+        {
+          ...required,
+          ...(provenance !== undefined ? { provenance } : {}),
+        },
+        requestOptions({ idempotency_key }),
+      );
+    },
+  );
+
+  registerTool(
+    registration,
+    "get_agent_report",
+    {
+      access: "read",
+      group: "agent-reports",
+      description: "Read one saved analysis. A report ID never grants access to another project.",
+      inputSchema: getAgentReportInputSchema,
+      publishClosedSchema: true,
+      title: "Get agent report",
+    },
+    async (input) => client.getAgentReport(input.project_id, input.report_id),
+  );
+
+  registerTool(
+    registration,
+    "analyze_ai_visibility",
+    {
+      access: "write",
+      group: "ai-visibility",
+      description:
+        "Inspect provider-observed ChatGPT or Google AI Overview mentions and citations. This is a limited provider dataset, not all user conversations. Requires BYOK or deployment credits, an explicit cost cap, and project write scope.",
+      inputSchema: analyzeAiVisibilityInputSchema,
+      publishClosedSchema: true,
+      title: "Analyze AI visibility",
+    },
+    async (input) => {
+      const { project_id, idempotency_key, ...payload } = input;
+      return client.analyzeAiVisibility(project_id, payload, requestOptions({ idempotency_key }));
+    },
+  );
+
+  registerTool(
+    registration,
+    "compare_ai_prompts",
+    {
+      access: "write",
+      group: "prompt-explorer",
+      description:
+        "Run the same synthetic prompt against supported models and compare answers, brand mentions and returned citations. These tests are not observed ChatGPT/AIO visibility. Requires an explicit cost cap and project write scope.",
+      inputSchema: compareAiPromptsInputSchema,
+      publishClosedSchema: true,
+      title: "Compare AI prompts",
+    },
+    async (input) => {
+      const { project_id, idempotency_key, ...payload } = input;
+      const { models, ...required } = payload;
+      return client.compareAiPrompts(
+        project_id,
+        {
+          ...required,
+          ...(models !== undefined ? { models } : {}),
+        },
+        requestOptions({ idempotency_key }),
+      );
+    },
+  );
+
+  registerTool(
+    registration,
+    "run_site_audit",
+    {
+      access: "write",
+      group: "site-audits",
+      description:
+        "Crawl the project domain only, with SSRF protection, at most 15 pages and a 15-second total deadline. Save page signals and URL issues as a report. No paid provider request or Lighthouse.",
+      inputSchema: runSiteAuditInputSchema,
+      publishClosedSchema: true,
+      title: "Run site audit",
+    },
+    async (input) => {
+      const { project_id, idempotency_key, ...payload } = input;
+      return client.runSiteAudit(project_id, payload, requestOptions({ idempotency_key }));
+    },
+  );
+
+  registerTool(
+    registration,
+    "list_site_audits",
+    {
+      access: "read",
+      group: "site-audits",
+      description: "Read the saved bounded crawl history for this project.",
+      inputSchema: listSiteAuditsInputSchema,
+      publishClosedSchema: true,
+      title: "List site audits",
+    },
+    async (input) => client.listSiteAudits(input.project_id),
+  );
+
+  registerTool(
+    registration,
+    "get_site_audit",
+    {
+      access: "read",
+      group: "site-audits",
+      description: "Read saved page signals and issues for one project crawl.",
+      inputSchema: getSiteAuditInputSchema,
+      publishClosedSchema: true,
+      title: "Get site audit",
+    },
+    async (input) => client.getSiteAudit(input.project_id, input.report_id),
+  );
+
+  return sessionProfile(registered, readOnlyRegistered, registration.options);
+}
+
+export function bisibilitySessionProfile(
+  options: RegisterBisibilityToolsOptions,
+): BisibilityMcpSessionProfile {
+  return registerBisibilityTools({ registerTool: () => undefined } as never, options);
 }

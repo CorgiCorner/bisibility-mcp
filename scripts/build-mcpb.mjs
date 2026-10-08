@@ -38,6 +38,9 @@ try {
   await mkdir(assetsDirectory, { recursive: true });
   await mkdir(serverDirectory, { recursive: true });
   await cp(join(projectRoot, "mcpb/manifest.json"), join(stagingDirectory, "manifest.json"));
+  for (const file of ["LICENSE", "NOTICE", "README.md"]) {
+    await cp(join(projectRoot, file), join(stagingDirectory, file));
+  }
   await cp(
     join(projectRoot, "assets/bisibility-mcp.png"),
     join(assetsDirectory, "bisibility-mcp.png"),

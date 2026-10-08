@@ -10,6 +10,12 @@ function serverMetadata(server: McpServer): { name?: string; version?: string } 
     ._serverInfo;
 }
 
+function serverInstructions(server: McpServer): string | undefined {
+  // Same pattern as serverMetadata: `_instructions` has no public accessor, and it
+  // is only read by the initialize response after registration is complete.
+  return (server.server as unknown as { _instructions?: string })._instructions;
+}
+
 function clientMock() {
   return {
     addKeywords: vi.fn(),
@@ -54,5 +60,34 @@ describe("createBisibilityMcpServer", () => {
       name: SERVER_NAME,
       version: SERVER_VERSION,
     });
+  });
+
+  it("announces the active session profile in the registration instructions", () => {
+    const server = createBisibilityMcpServer({
+      client: clientMock() as never,
+      readOnly: true,
+      toolsets: ["projects", "keywords"],
+    });
+
+    expect(serverInstructions(server)).toContain(
+      "Session profile: read-only: true, toolsets: [projects, keywords], tools: 8; " +
+        "write tools are hidden, not forbidden by the API.",
+    );
+  });
+
+  it("does not claim hidden write tools outside read-only mode", () => {
+    const server = createBisibilityMcpServer({
+      client: clientMock() as never,
+      readOnly: false,
+    });
+
+    expect(serverInstructions(server)).toContain(
+      "Session profile: read-only: false, toolsets: [account, agent-reports, ai-visibility, " +
+        "alerts, analytics, backlinks, checks, competitors, domain-overview, keywords, " +
+        "notifications, project-context, projects, prompt-explorer, providers, rank-history, " +
+        "saved-keywords, saved-views, signals, site-audits, sitemaps, system, team, tokens, " +
+        "webhooks], tools: 105.",
+    );
+    expect(serverInstructions(server)).not.toContain("write tools are hidden");
   });
 });

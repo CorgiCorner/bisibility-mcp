@@ -16,6 +16,8 @@ export {
 export { createBisibilityMcpServer, type CreateBisibilityMcpServerOptions } from "./server.js";
 export { errorToolResult, jsonToolResult, serializeToolError } from "./result.js";
 export {
+  bisibilitySessionProfile,
+  type BisibilityMcpSessionProfile,
   type BisibilityToolClient,
   type RegisterBisibilityToolsOptions,
   registerBisibilityTools,

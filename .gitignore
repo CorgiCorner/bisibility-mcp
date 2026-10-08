@@ -15,3 +15,6 @@ yarn-error.log*
 
 # Graphify knowledge graph - generated, machine-local (regenerate: graphify update .)
 graphify-out/
+
+# Generated Python release-check bytecode.
+__pycache__/
