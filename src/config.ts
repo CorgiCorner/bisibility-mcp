@@ -17,6 +17,7 @@ export const BISIBILITY_MCP_TOOLSETS = [
   "account",
   "agent-reports",
   "ai-visibility",
+  "ai-tracking",
   "alerts",
   "analytics",
   "backlinks",

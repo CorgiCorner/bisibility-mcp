@@ -158,10 +158,37 @@ const expectedToolNames = [
   "create_agent_report",
   "get_agent_report",
   "analyze_ai_visibility",
+  "get_ai_research_catalog",
   "compare_ai_prompts",
   "run_site_audit",
   "list_site_audits",
   "get_site_audit",
+  "list_ai_tracking_topics",
+  "create_ai_tracking_topic",
+  "update_ai_tracking_topic",
+  "archive_ai_tracking_topic",
+  "list_ai_tracking_prompts",
+  "create_ai_tracking_prompt",
+  "update_ai_tracking_prompt",
+  "archive_ai_tracking_prompt",
+  "list_ai_tracking_schedules",
+  "create_ai_tracking_schedule",
+  "update_ai_tracking_schedule",
+  "archive_ai_tracking_schedule",
+  "preview_ai_tracking_run",
+  "create_ai_tracking_run",
+  "list_ai_tracking_runs",
+  "get_ai_tracking_run",
+  "list_ai_tracking_samples",
+  "cancel_ai_tracking_run",
+  "retry_ai_tracking_run",
+  "get_ai_tracking_history",
+  "get_ai_tracking_trends",
+  "export_ai_tracking_evidence",
+  "suggest_ai_tracking_prompts",
+  "accept_ai_tracking_suggestions",
+  "ai_tracking_suggestions_preview",
+  "ai_tracking_suggestions_generate",
 ];
 
 function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeof vi.fn>> {
@@ -172,6 +199,33 @@ function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeo
     createAgentReport: vi.fn(),
     getAgentReport: vi.fn(),
     analyzeAiVisibility: vi.fn(),
+    listAiTrackingTopics: vi.fn(),
+    createAiTrackingTopic: vi.fn(),
+    updateAiTrackingTopic: vi.fn(),
+    archiveAiTrackingTopic: vi.fn(),
+    listAiTrackingPrompts: vi.fn(),
+    createAiTrackingPrompt: vi.fn(),
+    updateAiTrackingPrompt: vi.fn(),
+    archiveAiTrackingPrompt: vi.fn(),
+    listAiTrackingSchedules: vi.fn(),
+    createAiTrackingSchedule: vi.fn(),
+    updateAiTrackingSchedule: vi.fn(),
+    archiveAiTrackingSchedule: vi.fn(),
+    previewAiTrackingRun: vi.fn(),
+    createAiTrackingRun: vi.fn(),
+    listAiTrackingRuns: vi.fn(),
+    getAiTrackingRun: vi.fn(),
+    listAiTrackingSamples: vi.fn(),
+    cancelAiTrackingRun: vi.fn(),
+    retryAiTrackingRun: vi.fn(),
+    getAiTrackingHistory: vi.fn(),
+    getAiTrackingTrends: vi.fn(),
+    exportAiTrackingEvidence: vi.fn(),
+    suggestAiTrackingPrompts: vi.fn(),
+    acceptAiTrackingSuggestions: vi.fn(),
+    getAiResearchCatalog: vi.fn(),
+    aiTrackingSuggestionsPreview: vi.fn(),
+    aiTrackingSuggestionsGenerate: vi.fn(),
     compareAiPrompts: vi.fn(),
     runSiteAudit: vi.fn(),
     listSiteAudits: vi.fn(),
@@ -416,7 +470,7 @@ describe("registerBisibilityTools", () => {
   it("uses the same unprefixed snake_case names as the built-in HTTP server", () => {
     const { tools } = createToolHarness();
 
-    expect([...tools]).toHaveLength(105);
+    expect([...tools]).toHaveLength(132);
     expect([...tools.keys()].every((name) => /^[a-z][a-z0-9_]*$/.test(name))).toBe(true);
     expect([...tools.keys()].some((name) => name.startsWith("bisibility_"))).toBe(false);
   });
@@ -479,7 +533,7 @@ describe("registerBisibilityTools", () => {
       "resend_",
     ];
 
-    expect(tools.size).toBe(42);
+    expect(tools.size).toBe(55);
     expect(tools.has("estimate_backlinks_cost")).toBe(true);
     expect(tools.has("estimate_domain_overview_cost")).toBe(true);
     expect(tools.has("estimate_keyword_research_cost")).toBe(true);
@@ -666,8 +720,8 @@ describe("registerBisibilityTools", () => {
   it("documents field truthfulness sentences in tool descriptions", () => {
     const { configs } = createToolHarness();
     const latestPositionSentence =
-      "latest_position is null after a failed check as well as when the domain is outside the " +
-      "requested depth; read latest_check and latest_successful_check to tell them apart.";
+      "latest_position can be null after a failed check, with unknown observation coverage, " +
+      "or for absence within the requested depth.";
     const errorCodeSentence =
       "error_code is a stable reason (provider_billing, provider_auth, provider_rate_limited, " +
       "provider_transient); retry only for provider_rate_limited or provider_transient.";
@@ -694,6 +748,117 @@ describe("registerBisibilityTools", () => {
     expect(configs.get("get_capabilities")?.description).toContain(
       "public catalog; for what this session can do call get_session_profile and get_project (readiness)",
     );
+  });
+
+  it("advertises coverage and failed-response evidence through the real tools/list transport", async () => {
+    const server = createBisibilityMcpServer({
+      client: createClientMock() as never,
+      readOnly: false,
+      toolsets: ["keywords", "checks", "rank-history", "backlinks"],
+    });
+    const client = new Client({ name: "evidence-contract-test", version: "0.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    try {
+      await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+      const listed = await client.listTools();
+      const tools = new Map(listed.tools.map((tool) => [tool.name, tool]));
+      for (const name of [
+        "list_keywords",
+        "get_keyword",
+        "get_rank_history",
+        "get_rank_check_result",
+      ]) {
+        const description = tools.get(name)?.description;
+        expect(description).toContain("observation_completeness");
+        expect(description).toContain("Only complete coverage supports absence");
+        expect(description).toContain("positive position remains valid");
+      }
+      const backlinks = tools.get("analyze_backlinks")?.description;
+      expect(backlinks).toContain("history_unavailable");
+      expect(backlinks).toContain("isError");
+      expect(backlinks).toContain("current-response evidence");
+      expect(backlinks).toContain("not a cached snapshot or a settled total");
+      expect(backlinks).toContain("does not survive reload");
+      expect(tools.get("load_more_backlink_rows")?.description).toContain(
+        "cannot extend failed current-response summary evidence",
+      );
+    } finally {
+      await client.close().catch(() => undefined);
+      await server.close().catch(() => undefined);
+    }
+  });
+
+  it.each([
+    [null, "unknown"],
+    [null, "complete"],
+    [4, "truncated_by_stop_on_match"],
+  ])(
+    "preserves rank position %s and coverage %s without inferring absence",
+    async (position, coverage) => {
+      const { callTool, client } = createToolHarness();
+      const observation = {
+        ...keyword(),
+        latest_position: position,
+        latest_check: { status: "completed", position, observation_completeness: coverage },
+      };
+      client.getKeyword.mockResolvedValueOnce(observation);
+      const result = await callTool("get_keyword", { keyword_id: publicId("kw") });
+      expect(result.isError).toBeUndefined();
+      expect(result.structuredContent).toEqual(observation);
+      expect(parsedContent(result)).toEqual(observation);
+    },
+  );
+
+  it("keeps failed backlinks summary evidence in only the current error response", async () => {
+    const { callTool, client } = createToolHarness();
+    const details = {
+      status: "failed",
+      cost_cents: null,
+      known_summary_cost_cents: 1.2,
+      history_status: "failed",
+      rows_status: "not_requested",
+      summary: { backlinks_total: 42, referring_domains_total: 7 },
+    };
+    client.analyzeBacklinks
+      .mockRejectedValueOnce({
+        name: "BisibilityHttpError",
+        message: "The history request failed. Total cost is unknown.",
+        status: 500,
+        problem: { type: "internal_server_error", details },
+      })
+      .mockRejectedValueOnce(new Error("A separate request failed."));
+    const result = await callTool("analyze_backlinks", {
+      project_id: publicId("prj"),
+      target: "example.com",
+    });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({
+      error: { status: 500, problem: { details } },
+    });
+    expect(parsedContent(result)).toMatchObject({ error: { problem: { details } } });
+    const next = await callTool("analyze_backlinks", {
+      project_id: publicId("prj"),
+      target: "example.com",
+    });
+    expect(next.isError).toBe(true);
+    expect(JSON.stringify(next.structuredContent)).not.toContain("backlinks_total");
+    expect(client.analyzeBacklinks).toHaveBeenCalledTimes(2);
+    expect(client.loadMoreBacklinkRows).not.toHaveBeenCalled();
+  });
+
+  it("preserves a successful backlinks snapshot with explicitly unavailable optional history", async () => {
+    const { callTool, client } = createToolHarness();
+    const snapshot = { ...backlinksSnapshot(), history: [], history_unavailable: true };
+    client.analyzeBacklinks.mockResolvedValueOnce(snapshot);
+    const result = await callTool("analyze_backlinks", {
+      project_id: publicId("prj"),
+      target: "example.com",
+    });
+    expect(result.isError).toBeUndefined();
+    expect(result.structuredContent).toEqual(snapshot);
+    expect(parsedContent(result)).toEqual(snapshot);
+    expect(client.analyzeBacklinks).toHaveBeenCalledTimes(1);
+    expect(client.loadMoreBacklinkRows).not.toHaveBeenCalled();
   });
 
   it("returns JSON text content and structured content", async () => {

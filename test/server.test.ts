@@ -82,11 +82,11 @@ describe("createBisibilityMcpServer", () => {
     });
 
     expect(serverInstructions(server)).toContain(
-      "Session profile: read-only: false, toolsets: [account, agent-reports, ai-visibility, " +
+      "Session profile: read-only: false, toolsets: [account, agent-reports, ai-visibility, ai-tracking, " +
         "alerts, analytics, backlinks, checks, competitors, domain-overview, keywords, " +
         "notifications, project-context, projects, prompt-explorer, providers, rank-history, " +
         "saved-keywords, saved-views, signals, site-audits, sitemaps, system, team, tokens, " +
-        "webhooks], tools: 105.",
+        "webhooks], tools: 132.",
     );
     expect(serverInstructions(server)).not.toContain("write tools are hidden");
   });

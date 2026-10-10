@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.16.0 - 2026-10-10
+
+- Add 26 project-scoped AI tracking tools for topics, immutable prompt revisions, schedules,
+  consented runs, samples, history, trends, evidence exports, and accepted suggestions.
+- Add a free AI research catalog tool and prompt comparison options for current models, web search,
+  locale hints, and explicitly acknowledged provider actual-cost mode.
+- Add read-only full context review and model generation preview. Paid generation requires a frozen
+  preview, explicit consent, and a stable idempotency UUID; forecasts have no guaranteed maximum.
+- Preserve trusted generation or provider dataset references when accepting edited prompt drafts.
+  Generated hypotheses carry no measured popularity, and unknown costs remain null.
+
 ## 0.11.0 - 2026-10-07
 
 - Added project context, saved reports, cost-capped AI visibility and prompt comparison, and bounded site audit tools.

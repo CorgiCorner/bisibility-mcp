@@ -96,6 +96,10 @@ const cases = [
         ...analysis,
         estimate_only: false,
         fresh: false,
+        cost_policy: "hard_cap",
+        web_search: false,
+        response_language: "en",
+        max_output_tokens: 512,
         prompt: "Compare example tools",
         models: ["gpt-4.1-mini"],
       },
@@ -188,6 +192,10 @@ describe("research workspace tools", () => {
         max_cost_cents: 0,
         estimate_only: true,
         fresh: false,
+        cost_policy: "hard_cap",
+        web_search: false,
+        response_language: "en",
+        max_output_tokens: 512,
       },
       undefined,
     );
@@ -242,7 +250,7 @@ describe("research workspace tools", () => {
     ["analyze_ai_visibility", { project_id: project, ...analysis, max_cost_cents: 1001 }],
     [
       "compare_ai_prompts",
-      { project_id: project, ...analysis, prompt: "Prompt", models: ["unsupported"] },
+      { project_id: project, ...analysis, prompt: "Prompt", models: ["bad model!"] },
     ],
 
     [
@@ -276,8 +284,8 @@ describe("research workspace tools", () => {
       for (const [name] of cases) {
         const schema = listed.find((tool) => tool.name === name)?.inputSchema;
         expect(schema?.additionalProperties).toBe(false);
-        if (name === "analyze_ai_visibility" || name === "compare_ai_prompts")
-          expect(schema?.required).toContain("max_cost_cents");
+        if (name === "analyze_ai_visibility") expect(schema?.required).toContain("max_cost_cents");
+        if (name === "compare_ai_prompts") expect(schema?.oneOf).toHaveLength(2);
         if (name === "get_agent_report" || name === "get_site_audit")
           expect(schema?.properties?.report_id).toMatchObject({
             pattern: "^agr_[a-z][a-z0-9]{23}$",

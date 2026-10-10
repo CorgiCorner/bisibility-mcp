@@ -52,6 +52,7 @@ import type {
 } from "@bisibility/sdk";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type * as z from "zod/v4";
+import { registerAiTrackingTools } from "./ai-tracking-tools.js";
 
 import { BISIBILITY_MCP_TOOLSETS, type BisibilityMcpToolset } from "./config.js";
 import {
@@ -59,6 +60,7 @@ import {
   compareAiPromptsInputSchema,
   createAgentReportInputSchema,
   getAgentReportInputSchema,
+  getAiResearchCatalogInputSchema,
   getProjectContextInputSchema,
   getSiteAuditInputSchema,
   listAgentReportsInputSchema,
@@ -164,6 +166,33 @@ import {
 
 export type BisibilityToolClient = Pick<
   BisibilityClient,
+  | "getAiResearchCatalog"
+  | "listAiTrackingTopics"
+  | "aiTrackingSuggestionsPreview"
+  | "aiTrackingSuggestionsGenerate"
+  | "createAiTrackingTopic"
+  | "updateAiTrackingTopic"
+  | "archiveAiTrackingTopic"
+  | "listAiTrackingPrompts"
+  | "createAiTrackingPrompt"
+  | "updateAiTrackingPrompt"
+  | "archiveAiTrackingPrompt"
+  | "listAiTrackingSchedules"
+  | "createAiTrackingSchedule"
+  | "updateAiTrackingSchedule"
+  | "archiveAiTrackingSchedule"
+  | "previewAiTrackingRun"
+  | "createAiTrackingRun"
+  | "listAiTrackingRuns"
+  | "getAiTrackingRun"
+  | "listAiTrackingSamples"
+  | "cancelAiTrackingRun"
+  | "retryAiTrackingRun"
+  | "getAiTrackingHistory"
+  | "getAiTrackingTrends"
+  | "exportAiTrackingEvidence"
+  | "suggestAiTrackingPrompts"
+  | "acceptAiTrackingSuggestions"
   | "getProjectContext"
   | "updateProjectContext"
   | "listAgentReports"
@@ -983,7 +1012,7 @@ function toolHandler<TSchema extends ToolSchema>(schema: TSchema, execute: ToolE
   };
 }
 
-function registerTool<TSchema extends ToolSchema>(
+export function registerTool<TSchema extends ToolSchema>(
   registration: {
     options: BisibilitySessionOptions;
     record: (name: string, access: "read" | "write") => void;
@@ -1029,6 +1058,9 @@ function registerTool<TSchema extends ToolSchema>(
 }
 
 const OPEN_WORLD_TOOL_NAMES = new Set([
+  "ai_tracking_suggestions_generate",
+  "create_ai_tracking_run",
+  "retry_ai_tracking_run",
   "analyze_ai_visibility",
   "compare_ai_prompts",
   "run_site_audit",
@@ -1337,8 +1369,11 @@ export function registerBisibilityTools(
         "market. Supports pagination, search, filters, and sorting. Use it for rank positions, " +
         "rank tracking, keyword rankings, and SERP position lookups. Each keyword includes " +
         "location_key, language_code, and language_label for its exact market pair. " +
-        "latest_position is null after a failed check as well as when the domain is outside the " +
-        "requested depth; read latest_check and latest_successful_check to tell them apart.",
+        "latest_position can be null after a failed check, with unknown observation coverage, " +
+        "or for absence within the requested depth. Read latest_check.status and " +
+        "observation_completeness. Only complete coverage supports absence within depth; a " +
+        "positive position remains valid with truncated coverage. latest_successful_check is " +
+        "the most recent completed observation and can also have unknown coverage.",
       inputSchema: listKeywordsInputSchema,
       title: "List project keywords",
     },
@@ -1410,8 +1445,13 @@ export function registerBisibilityTools(
       group: "backlinks",
       description:
         "Requires API write scope because cache misses spend the project's own DataForSEO budget. " +
-        "Returns summary metrics, 12-month history, and per-link rows with new or lost status. " +
-        "Snapshots are cached for 24 hours. Call with estimate_only first for a free dry run, then " +
+        "Successful snapshots contain summary metrics and per-link rows with new or lost status. " +
+        "Optional 12-month history may be unavailable: history_unavailable marks a history failure " +
+        "with confirmed cost while summary and links remain available. With unknown accounting, " +
+        "the response remains failed (isError) and may retain a completed summary as " +
+        "current-response evidence, with cost_cents null and rows_status not_requested. " +
+        "This evidence is not a cached snapshot or a settled total and does not survive reload. " +
+        "Successful snapshots are cached for 24 hours. Call with estimate_only first for a free dry run, then " +
         "use max_cost_cents as a best-effort request guard. Compute aggregate views from rows and " +
         'treat them as "within fetched rows" only.',
       inputSchema: analyzeBacklinksInputSchema,
@@ -1444,7 +1484,7 @@ export function registerBisibilityTools(
       description:
         "Requires API write scope. Extends the current unexpired backlinks snapshot at the " +
         "per-100-row provider rate. Returns 409 snapshot_expired when no current snapshot exists; " +
-        "run analyze_backlinks first.",
+        "run analyze_backlinks first. This tool cannot extend failed current-response summary evidence.",
       inputSchema: loadMoreBacklinkRowsInputSchema,
       title: "Load more backlink rows",
     },
@@ -1601,9 +1641,12 @@ export function registerBisibilityTools(
       group: "keywords",
       description:
         "Get a keyword and its latest rank position by keyword id, including location_key, " +
-        "language_code, and language_label for its exact market pair. latest_position is null " +
-        "after a failed check as well as when the domain is outside the requested depth; read " +
-        "latest_check and latest_successful_check to tell them apart.",
+        "language_code, and language_label for its exact market pair. " +
+        "latest_position can be null after a failed check, with unknown observation coverage, " +
+        "or for absence within the requested depth. Read latest_check.status and " +
+        "observation_completeness. Only complete coverage supports absence within depth; a " +
+        "positive position remains valid with truncated coverage. latest_successful_check is " +
+        "the most recent completed observation and can also have unknown coverage.",
       inputSchema: getKeywordInputSchema,
       title: "Get keyword",
     },
@@ -1718,6 +1761,9 @@ export function registerBisibilityTools(
       group: "rank-history",
       description:
         "List historical rank checks for a keyword with date, status, and pagination filters. " +
+        "Read status and observation_completeness before interpreting position null. " +
+        "Only complete coverage supports absence within depth; a positive position remains valid " +
+        "with truncated coverage. Unknown or legacy coverage does not establish absence. " +
         "error_code is a stable reason (provider_billing, provider_auth, provider_rate_limited, " +
         "provider_transient); retry only for provider_rate_limited or provider_transient.",
       inputSchema: getRankHistoryInputSchema,
@@ -1806,7 +1852,10 @@ export function registerBisibilityTools(
       access: "read",
       group: "checks",
       description:
-        "Get one rank check result by check id. error_code is a stable reason (provider_billing, " +
+        "Get one rank check result by check id. Read status and observation_completeness before " +
+        "interpreting position null. Only complete coverage supports absence within depth; a " +
+        "positive position remains valid with truncated coverage. Unknown or legacy coverage does " +
+        "not establish absence. error_code is a stable reason (provider_billing, " +
         "provider_auth, provider_rate_limited, provider_transient); retry only for " +
         "provider_rate_limited or provider_transient.",
       inputSchema: getRankCheckResultInputSchema,
@@ -2801,12 +2850,27 @@ export function registerBisibilityTools(
 
   registerTool(
     registration,
+    "get_ai_research_catalog",
+    {
+      access: "read",
+      group: "prompt-explorer",
+      description:
+        "Read the free current provider AI model, locale, and cost-policy capabilities. This read never initiates paid work.",
+      inputSchema: getAiResearchCatalogInputSchema,
+      publishClosedSchema: true,
+      title: "Get AI research catalog",
+    },
+    async (input) => client.getAiResearchCatalog(input.project_id),
+  );
+
+  registerTool(
+    registration,
     "compare_ai_prompts",
     {
       access: "write",
       group: "prompt-explorer",
       description:
-        "Run the same synthetic prompt against supported models and compare answers, brand mentions and returned citations. These tests are not observed ChatGPT/AIO visibility. Requires an explicit cost cap and project write scope.",
+        "Run the same synthetic prompt against supported models and compare answers, brand mentions and returned citations. These tests are not observed ChatGPT/AIO visibility. Requires a guaranteed hard cap or explicit actual-cost consent with an advisory estimate limit, and project write scope.",
       inputSchema: compareAiPromptsInputSchema,
       publishClosedSchema: true,
       title: "Compare AI prompts",
@@ -2817,9 +2881,14 @@ export function registerBisibilityTools(
       return client.compareAiPrompts(
         project_id,
         {
-          ...required,
+          ...Object.fromEntries(
+            Object.entries(required).filter(([, value]) => value !== undefined),
+          ),
+          ...(payload.cost_policy === "provider_actual_cost" && idempotency_key !== undefined
+            ? { idempotency_key }
+            : {}),
           ...(models !== undefined ? { models } : {}),
-        },
+        } as Parameters<BisibilityClient["compareAiPrompts"]>[1],
         requestOptions({ idempotency_key }),
       );
     },
@@ -2870,6 +2939,8 @@ export function registerBisibilityTools(
     },
     async (input) => client.getSiteAudit(input.project_id, input.report_id),
   );
+
+  registerAiTrackingTools(registration, client);
 
   return sessionProfile(registered, readOnlyRegistered, registration.options);
 }

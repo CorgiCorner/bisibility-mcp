@@ -175,6 +175,18 @@ cap. Use `estimate_only: true` together with `max_cost_cents: 0` for the safe
 estimate-first step; provider estimates and returned charges may still contain
 fractional cents.
 
+For rank results, read execution status and `observation_completeness` together with
+`position`. A null position with unknown or legacy coverage does not establish absence
+within Top N. Only complete coverage supports that conclusion; a positive position remains
+valid with truncated coverage. `latest_successful_check` means the most recent completed
+observation, which can itself have unknown coverage.
+
+Backlinks history is optional. `history_unavailable` marks a history failure with confirmed
+cost while summary and links remain available. If accounting is unknown, the request stays
+failed (`isError`) and may carry the completed summary as current-response evidence:
+`cost_cents` is null and rows are not requested. That evidence is not a cached snapshot or a
+settled total, cannot be extended with `load_more_backlink_rows`, and does not survive reload.
+
 | Area | Examples |
 | --- | --- |
 | Discovery | Health, capabilities, provider rates, and cost estimates |
@@ -187,7 +199,7 @@ fractional cents.
 <details>
 <summary>View tool names in this source checkout</summary>
 
-This list describes the `0.11.0` source checkout. See the
+This list describes the `0.16.0` source checkout. See the
 [distribution status](docs/DISTRIBUTION.md) for currently published package and directory versions.
 The hosted endpoint has its own inventory.
 
@@ -292,15 +304,45 @@ The hosted endpoint has its own inventory.
 - `create_agent_report`
 - `get_agent_report`
 - `analyze_ai_visibility`
+- `get_ai_research_catalog`
 - `compare_ai_prompts`
 - `run_site_audit`
 - `list_site_audits`
 - `get_site_audit`
 
+- `list_ai_tracking_topics`
+- `create_ai_tracking_topic`
+- `update_ai_tracking_topic`
+- `archive_ai_tracking_topic`
+- `list_ai_tracking_prompts`
+- `create_ai_tracking_prompt`
+- `update_ai_tracking_prompt`
+- `archive_ai_tracking_prompt`
+- `list_ai_tracking_schedules`
+- `create_ai_tracking_schedule`
+- `update_ai_tracking_schedule`
+- `archive_ai_tracking_schedule`
+- `preview_ai_tracking_run`
+- `create_ai_tracking_run`
+- `list_ai_tracking_runs`
+- `get_ai_tracking_run`
+- `list_ai_tracking_samples`
+- `cancel_ai_tracking_run`
+- `retry_ai_tracking_run`
+- `get_ai_tracking_history`
+- `get_ai_tracking_trends`
+- `export_ai_tracking_evidence`
+- `suggest_ai_tracking_prompts`
+- `accept_ai_tracking_suggestions`
+- `ai_tracking_suggestions_preview`
+- `ai_tracking_suggestions_generate`
+
 </details>
 
-All protected tools use the configured `BISIBILITY_API_KEY`. Write tools accept an optional
-`idempotency_key`, which is forwarded as the API `Idempotency-Key` request option.
+All protected tools use the configured `BISIBILITY_API_KEY`. Tools that accept an
+`idempotency_key` forward it as the API `Idempotency-Key` request option. The key is required
+for `create_ai_tracking_run`, `retry_ai_tracking_run`, and `ai_tracking_suggestions_generate`;
+generation requires a UUID. Other tools expose optional keys where supported by their schemas.
 
 The list above is asserted by a test (`test/tools.test.ts`), so it stays in sync with the
 registered tool surface.
@@ -328,8 +370,9 @@ safe estimate-first step, call `analyze_domain_overview` with `estimate_only: tr
 permitted provider charge.
 
 AI visibility reads a limited provider-observed dataset. Prompt Explorer runs synthetic prompts;
-it does not measure all user conversations or observed AI visibility. Both require an explicit
-whole-cent `max_cost_cents` cap, including estimate-only calls. Start with `estimate_only: true`
+it does not measure all user conversations or observed AI visibility. Observed visibility requires an explicit
+whole-cent `max_cost_cents` cap. Prompt comparison uses that cap in default hard-cap mode;
+explicit provider actual-cost mode uses acknowledged non-guaranteed estimates and an advisory limit. Start with `estimate_only: true`
 and a zero cap. Site audits crawl only the project domain within a bounded page count and deadline;
 they do not run Lighthouse or paid provider work. Saved reports and project context retain the
 project's existing authorization rules.
@@ -383,3 +426,36 @@ npm run build
 ## License
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+### AI tracking
+
+The `ai-tracking` toolset exposes 26 project-scoped tools for topics, immutable prompt revisions,
+disabled schedules, spend-free preview, consented runs, samples, history, trends, exports and
+explicitly accepted prompt suggestions. Read-only sessions retain preview and evidence reads.
+Launch and retry require reviewed credential/budget/consent revisions, explicit paid consent,
+and a stable `idempotency_key`, forwarded through the SDK as `Idempotency-Key`. No operation
+starts an automatic paid baseline.
+
+`get_ai_research_catalog` reads free model and locale capabilities. `compare_ai_prompts` accepts
+catalog model IDs, optional web search and locale hints, and an explicit actual-cost policy.
+Actual-cost consent acknowledges that its estimate is not a guaranteed maximum.
+
+Model prompt generation uses `ai_tracking_suggestions_preview` followed by
+`ai_tracking_suggestions_generate`. Preview reviews all five context fields, selected competitors,
+model and market without paid provider work. Generation requires the complete unexpired frozen
+preview, explicit paid consent and a stable UUID `idempotency_key`. Forecasts have no guaranteed
+maximum; generated drafts carry no measured popularity. Accepted edits retain the trusted
+`generation_reference`; provider datasets use a verified `provider_dataset_reference`.
+
+## Response evidence compatibility
+
+Rank checks expose optional `observation_completeness`, and keywords expose optional
+`latest_check` and `latest_successful_check`. Older responses can omit these fields.
+Only complete coverage supports absence within the requested depth; a positive position
+remains valid with unknown or truncated coverage. A newer failure retains the prior success.
+
+Site backlinks normally have 12 history months. A successful partial snapshot has
+`history: []` and `history_unavailable: true`; preserve its summary, rows and confirmed cost.
+Page scope does not request history. Missing availability metadata uses the legacy default.
+A failed summary remains an HTTP error with current-response evidence in problem `details`:
+`cost_cents: null` is an unknown total, while `known_summary_cost_cents` is confirmed.

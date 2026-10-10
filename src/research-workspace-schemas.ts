@@ -1,4 +1,5 @@
 import * as z from "zod/v4";
+import { promptCostPolicyJsonSchema } from "./prompt-cost-policy-schema.js";
 import { publicIdInput } from "./schemas.js";
 
 const projectId = publicIdInput("prj").describe(
@@ -98,25 +99,110 @@ export const analyzeAiVisibilityInputSchema = z.strictObject({
   limit: z.number().int().min(1).max(20).default(10).describe("Maximum mention rows."),
   idempotency_key: idempotencyKey,
 });
-export const compareAiPromptsInputSchema = z.strictObject({
-  ...aiAnalysisFields,
-  prompt: z
-    .string()
-    .min(1)
-    .max(500)
-    .describe("The same synthetic test prompt for each selected model. Maximum 2000 UTF-8 bytes."),
-  models: z
-    .array(z.enum(["gpt-4.1-mini", "gpt-4.1-nano"]))
-    .min(1)
-    .max(2)
-    .refine((models) => new Set(models).size === models.length, "Models must be unique.")
-    .optional()
-    .meta({ uniqueItems: true })
-    .describe(
-      "Bounded, supported non-reasoning models; web search is disabled in this first version.",
+export const getAiResearchCatalogInputSchema = getProjectContextInputSchema;
+export const compareAiPromptsInputSchema = z
+  .strictObject({
+    ...aiAnalysisFields,
+    max_cost_cents: aiAnalysisFields.max_cost_cents.optional(),
+    fresh: aiAnalysisFields.fresh.describe(
+      "Hard-cap mode bypasses stored results. Actual-cost retries always reuse their durable request identity; fresh never re-dispatches a pending, unknown or completed attempt.",
     ),
-  idempotency_key: idempotencyKey,
-});
+    cost_policy: z
+      .enum(["hard_cap", "provider_actual_cost"])
+      .default("hard_cap")
+      .describe("Hard cap or explicitly consented non-guaranteed actual provider cost."),
+    actual_cost_acknowledgement: z
+      .literal("non_guaranteed_estimate_v1")
+      .optional()
+      .describe("Explicit acknowledgement that actual provider cost has no guaranteed maximum."),
+    estimated_cost_limit_cents: z
+      .number()
+      .int()
+      .min(0)
+      .max(1000)
+      .optional()
+      .describe("Advisory estimate limit in cents for actual-cost consent."),
+    estimate_credentials_ref: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional()
+      .describe("Credential identity from the estimate, required for actual-cost execution."),
+    prompt: z
+      .string()
+      .min(1)
+      .max(500)
+      .refine((value) => new TextEncoder().encode(value).length <= 2000)
+      .describe("Same synthetic prompt for each model; maximum 2000 UTF-8 bytes."),
+    models: z
+      .array(
+        z
+          .string()
+          .min(1)
+          .max(120)
+          .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/),
+      )
+      .min(1)
+      .max(2)
+      .refine((models) => new Set(models).size === models.length)
+      .optional()
+      .meta({ uniqueItems: true })
+      .describe("Distinct model IDs advertised by get_ai_research_catalog."),
+    web_search: z.boolean().default(false).describe("Enable provider web search when supported."),
+    country_iso_code: z
+      .string()
+      .regex(/^[A-Z]{2}$/)
+      .optional()
+      .describe("Country hint; requires web search."),
+    response_language: z
+      .string()
+      .regex(/^[a-z]{2,3}(?:-[a-zA-Z0-9]{2,4})?$/)
+      .default("en")
+      .describe("Requested response language."),
+    max_output_tokens: z
+      .number()
+      .int()
+      .min(16)
+      .max(4096)
+      .default(512)
+      .describe("Maximum output tokens; provider limits also apply."),
+    idempotency_key: z
+      .string()
+      .min(1)
+      .max(160)
+      .optional()
+      .describe(
+        "Stable retry key sent as a header; actual-cost mode requires a UUID also sent in the body.",
+      ),
+  })
+  .superRefine((value, context) => {
+    const issue = (path: string, message: string) =>
+      context.addIssue({ code: "custom", path: [path], message });
+    if (value.country_iso_code && !value.web_search)
+      issue("country_iso_code", "Country hints require web search.");
+    if (value.cost_policy === "hard_cap") {
+      if (value.max_cost_cents === undefined)
+        issue("max_cost_cents", "A hard cost cap is required.");
+      for (const key of [
+        "actual_cost_acknowledgement",
+        "estimated_cost_limit_cents",
+        "estimate_credentials_ref",
+      ] as const)
+        if (value[key] !== undefined) issue(key, "This field requires actual-cost policy.");
+    } else {
+      if (value.idempotency_key !== undefined && !z.uuid().safeParse(value.idempotency_key).success)
+        issue("idempotency_key", "Actual-cost policy requires a stable UUID.");
+      if (value.max_cost_cents !== undefined)
+        issue("max_cost_cents", "Actual cost has no guaranteed maximum.");
+      for (const key of ["actual_cost_acknowledgement", "estimated_cost_limit_cents"] as const)
+        if (value[key] === undefined)
+          issue(key, "Explicit consent and an advisory limit are required.");
+      if (!value.estimate_only)
+        for (const key of ["idempotency_key", "estimate_credentials_ref"] as const)
+          if (value[key] === undefined)
+            issue(key, "Execution requires estimate identity and a stable request ID.");
+    }
+  })
+  .meta(promptCostPolicyJsonSchema);
 export const runSiteAuditInputSchema = z.strictObject({
   project_id: projectId,
   max_pages: z
