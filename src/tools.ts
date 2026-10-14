@@ -17,6 +17,7 @@ import type {
   CreateWebhookInput,
   EstimateDomainOverviewOptions,
   ExportRankHistoryJsonOptions,
+  ExportRankHistoryReportJsonOptions,
   GetCostEstimateOptions,
   GetKeywordMetricsInput,
   KeywordBulkInput,
@@ -34,10 +35,10 @@ import type {
   LoadMoreBacklinkRowsOptions,
   MintMigrationTokenInput,
   PaginationOptions,
-  ProjectDefaultsPatch,
   ProviderSettingsInput,
   RequestOptions,
   ResearchKeywordsOptions,
+  ReviewedProjectDefaultsPatch,
   RunRankCheckInput,
   RunRankCheckOptions,
   SearchLocationsOptions,
@@ -53,6 +54,8 @@ import type {
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type * as z from "zod/v4";
 import { registerAiTrackingTools } from "./ai-tracking-tools.js";
+import { registerLocalMonitorTools } from "./local-monitor-tools.js";
+import { registerRankCheckRunTools } from "./rank-check-run-tools.js";
 
 import { BISIBILITY_MCP_TOOLSETS, type BisibilityMcpToolset } from "./config.js";
 import {
@@ -134,6 +137,7 @@ import {
   markProjectAlertsReadInputSchema,
   mintMigrationTokenInputSchema,
   muteTriggeredAlertInputSchema,
+  previewProjectDefaultsInputSchema,
   providerActionInputSchema,
   providerConnectionInputSchema,
   removeCompetitorInputSchema,
@@ -226,6 +230,13 @@ export type BisibilityToolClient = Pick<
   | "deleteSavedView"
   | "deleteWebhook"
   | "disconnectProvider"
+  | "listLocalMonitorRuns"
+  | "getLocalMonitorRunResults"
+  | "listLocalMonitorPointListings"
+  | "listLocalMonitorPointHistory"
+  | "listRankCheckRuns"
+  | "getRankCheckRun"
+  | "exportLocalMonitorRun"
   | "exportRankHistory"
   | "getCapabilities"
   | "getCloudImportCompatibility"
@@ -237,6 +248,7 @@ export type BisibilityToolClient = Pick<
   | "getNotificationPreferences"
   | "getProject"
   | "getProjectDefaults"
+  | "previewProjectDefaults"
   | "getProviderRates"
   | "getRankCheckResult"
   | "listAlertRules"
@@ -541,15 +553,23 @@ function keywordMetricsInput(
 
 function exportRankHistoryOptions(
   input: ParsedToolInput<typeof exportRankHistoryInputSchema>,
-): ExportRankHistoryJsonOptions {
-  return omitUndefined({
-    cursor: input.cursor,
-    format: "json",
-    granularity: input.granularity,
-    keywordIds: input.keyword_ids,
-    limit: input.limit,
-    range: input.range,
-  }) as ExportRankHistoryJsonOptions;
+): ExportRankHistoryJsonOptions | ExportRankHistoryReportJsonOptions {
+  const common = {
+    format: "json" as const,
+    ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+    ...(input.granularity === undefined ? {} : { granularity: input.granularity }),
+    ...(input.keyword_ids === undefined ? {} : { keywordIds: input.keyword_ids }),
+    ...(input.limit === undefined ? {} : { limit: input.limit }),
+    ...(input.range === undefined ? {} : { range: input.range }),
+    ...(input.stream === undefined ? {} : { stream: input.stream }),
+    ...(input.basis === undefined ? {} : { basis: input.basis }),
+    ...(input.from === undefined ? {} : { from: input.from }),
+    ...(input.to === undefined ? {} : { to: input.to }),
+    ...(input.aggregation === undefined ? {} : { aggregation: input.aggregation }),
+  };
+  return input.version === "2"
+    ? { ...common, version: "2" }
+    : { ...common, ...(input.version ? { version: input.version } : {}) };
 }
 
 function searchLocationsOptions(
@@ -753,7 +773,7 @@ function updateProjectPayload(
 
 function projectDefaultsPayload(
   input: ParsedToolInput<typeof updateProjectDefaultsInputSchema>,
-): ProjectDefaultsPatch {
+): ReviewedProjectDefaultsPatch {
   return omitUndefined({
     city: input.city,
     country: input.country,
@@ -765,7 +785,8 @@ function projectDefaultsPayload(
     serp_depth: input.serp_depth,
     serp_stop_on_match: input.serp_stop_on_match,
     timezone: input.timezone,
-  }) as ProjectDefaultsPatch;
+    review: input.review,
+  }) as ReviewedProjectDefaultsPatch;
 }
 
 function sitemapMonitorId(input: ParsedToolInput<typeof updateSitemapMonitorInputSchema>) {
@@ -1334,12 +1355,32 @@ export function registerBisibilityTools(
 
   registerTool(
     registration,
+    "preview_project_defaults",
+    {
+      access: "read",
+      group: "projects",
+      description:
+        "Preview the exact current defaults draft, source revision and impact without saving or provider work. Requires the server's settings permission. Review the returned draft before explicitly confirming it with update_project_defaults; do not fabricate or automatically confirm review fields.",
+      inputSchema: previewProjectDefaultsInputSchema,
+      publishClosedSchema: true,
+      title: "Preview project defaults",
+    },
+    async (input) =>
+      client.previewProjectDefaults(
+        input.project_id,
+        projectDefaultsPayload(input),
+        requestOptions(input),
+      ),
+  );
+
+  registerTool(
+    registration,
     "update_project_defaults",
     {
       access: "write",
       group: "projects",
       description:
-        "Update the project default rank-check schedule, SERP depth, and SERP market. The " +
+        "Confirm a preview_project_defaults draft using its exact source hash, revision, token and stable command key in review (confirmed:true). Missing review is refused by current servers; stale/expired review requires a new preview. Never auto-confirm. Update the project default rank-check schedule, SERP depth, and SERP market. The " +
         "schedule is replaced as a whole: omitted schedule fields (frequency, cron_expression, " +
         "jitter_minutes, timezone) reset to their defaults (jitter 60, timezone UTC, no cron). " +
         "serp_depth and serp_stop_on_match are independent of the schedule and keep their " +
@@ -1347,6 +1388,7 @@ export function registerBisibilityTools(
         "move the default SERP market. Use search_locations and pass its location_key verbatim " +
         "to preserve the exact location-language pair.",
       inputSchema: updateProjectDefaultsInputSchema,
+      publishClosedSchema: true,
       title: "Update project defaults",
     },
     async (input) =>
@@ -1784,13 +1826,23 @@ export function registerBisibilityTools(
       access: "read",
       group: "rank-history",
       description:
-        "Export project rank history as cursor-paginated JSON for reports and analysis. " +
+        "Export project rank history as cursor-paginated JSON. Version 1 preserves legacy rows; " +
+        "version 2 retains raw observations/attempts, frozen scope/time and quality metadata. " +
         "For full streamed CSV dumps, use the REST endpoint directly.",
       inputSchema: exportRankHistoryInputSchema,
       title: "Export project rank history",
     },
-    async (input) => client.exportRankHistory(input.project_id, exportRankHistoryOptions(input)),
+    async (input) => {
+      const options = exportRankHistoryOptions(input);
+      // Narrow the SDK overload while preserving the original export options.
+      return options.version === "2"
+        ? client.exportRankHistory(input.project_id, options)
+        : client.exportRankHistory(input.project_id, options);
+    },
   );
+
+  registerLocalMonitorTools(registration, client);
+  registerRankCheckRunTools(registration, client);
 
   registerTool(
     registration,

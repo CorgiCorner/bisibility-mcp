@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.17.0 - 2026-10-14
+
+- Add retained rank-check execution reads for cancelled, blocked and deferred outcomes without observations.
+- Add five Local monitor read tools and versioned rank-history reports preserving original scope, nullable evidence, and continuation cursors.
+- Add project-default previews and explicit confirmations gated by advertised server support.
+
 ## 0.16.0 - 2026-10-10
 
 - Add 26 project-scoped AI tracking tools for topics, immutable prompt revisions, schedules,

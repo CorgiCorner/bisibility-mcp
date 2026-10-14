@@ -72,6 +72,7 @@ const expectedToolNames = [
   "update_project",
   "delete_project",
   "get_project_defaults",
+  "preview_project_defaults",
   "update_project_defaults",
   "list_keywords",
   "list_ranked_keyword_suggestions",
@@ -95,6 +96,14 @@ const expectedToolNames = [
   "run_rank_check",
   "get_rank_history",
   "export_rank_history",
+  "list_local_monitor_runs",
+  "get_local_monitor_run_results",
+  "list_local_monitor_point_listings",
+  "list_local_monitor_point_history",
+  "export_local_monitor_run",
+  "list_rank_check_runs",
+  "get_rank_check_run",
+
   "list_sitemap_monitors",
   "enable_sitemap_monitor",
   "disable_sitemap_monitor",
@@ -193,6 +202,8 @@ const expectedToolNames = [
 
 function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeof vi.fn>> {
   return {
+    listRankCheckRuns: vi.fn(),
+    getRankCheckRun: vi.fn(),
     getProjectContext: vi.fn(),
     updateProjectContext: vi.fn(),
     listAgentReports: vi.fn(),
@@ -254,6 +265,12 @@ function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeo
     deleteWebhook: vi.fn(),
     disconnectProvider: vi.fn(),
     exportRankHistory: vi.fn(),
+    listLocalMonitorRuns: vi.fn(),
+    getLocalMonitorRunResults: vi.fn(),
+    listLocalMonitorPointListings: vi.fn(),
+    listLocalMonitorPointHistory: vi.fn(),
+    exportLocalMonitorRun: vi.fn(),
+
     getCapabilities: vi.fn(),
     getCloudImportCompatibility: vi.fn(),
     getCostEstimate: vi.fn(),
@@ -264,6 +281,7 @@ function createClientMock(): Record<keyof BisibilityToolClient, ReturnType<typeo
     getNotificationPreferences: vi.fn(),
     getProject: vi.fn(),
     getProjectDefaults: vi.fn(),
+    previewProjectDefaults: vi.fn(),
     getProviderRates: vi.fn(),
     getRankCheckResult: vi.fn(),
     listAlertRules: vi.fn(),
@@ -470,7 +488,7 @@ describe("registerBisibilityTools", () => {
   it("uses the same unprefixed snake_case names as the built-in HTTP server", () => {
     const { tools } = createToolHarness();
 
-    expect([...tools]).toHaveLength(132);
+    expect([...tools]).toHaveLength(140);
     expect([...tools.keys()].every((name) => /^[a-z][a-z0-9_]*$/.test(name))).toBe(true);
     expect([...tools.keys()].some((name) => name.startsWith("bisibility_"))).toBe(false);
   });
@@ -533,7 +551,7 @@ describe("registerBisibilityTools", () => {
       "resend_",
     ];
 
-    expect(tools.size).toBe(55);
+    expect(tools.size).toBe(63);
     expect(tools.has("estimate_backlinks_cost")).toBe(true);
     expect(tools.has("estimate_domain_overview_cost")).toBe(true);
     expect(tools.has("estimate_keyword_research_cost")).toBe(true);
@@ -557,6 +575,13 @@ describe("registerBisibilityTools", () => {
       "get_session_profile",
       "get_rank_history",
       "export_rank_history",
+      "list_local_monitor_runs",
+      "get_local_monitor_run_results",
+      "list_local_monitor_point_listings",
+      "list_local_monitor_point_history",
+      "export_local_monitor_run",
+      "list_rank_check_runs",
+      "get_rank_check_run",
     ]);
   });
 
@@ -588,6 +613,13 @@ describe("registerBisibilityTools", () => {
       "get_keyword",
       "get_rank_history",
       "export_rank_history",
+      "list_local_monitor_runs",
+      "get_local_monitor_run_results",
+      "list_local_monitor_point_listings",
+      "list_local_monitor_point_history",
+      "export_local_monitor_run",
+      "list_rank_check_runs",
+      "get_rank_check_run",
     ]);
   });
 

@@ -199,7 +199,7 @@ settled total, cannot be extended with `load_more_backlink_rows`, and does not s
 <details>
 <summary>View tool names in this source checkout</summary>
 
-This list describes the `0.16.0` source checkout. See the
+This list describes the source checkout and its unreleased changes. See the
 [distribution status](docs/DISTRIBUTION.md) for currently published package and directory versions.
 The hosted endpoint has its own inventory.
 
@@ -218,6 +218,7 @@ The hosted endpoint has its own inventory.
 - `update_project`
 - `delete_project`
 - `get_project_defaults`
+- `preview_project_defaults`
 - `update_project_defaults`
 - `list_keywords`
 - `list_ranked_keyword_suggestions`
@@ -241,6 +242,13 @@ The hosted endpoint has its own inventory.
 - `run_rank_check`
 - `get_rank_history`
 - `export_rank_history`
+| `list_rank_check_runs` | Read retained run outcomes and continuation cursors, including blocked and cancelled executions without checks. |
+| `get_rank_check_run` | Read one retained execution without launching or retrying a check. |
+- `list_local_monitor_runs`
+- `get_local_monitor_run_results`
+- `list_local_monitor_point_listings`
+- `list_local_monitor_point_history`
+- `export_local_monitor_run`
 - `list_sitemap_monitors`
 - `enable_sitemap_monitor`
 - `disable_sitemap_monitor`
@@ -459,3 +467,36 @@ Site backlinks normally have 12 history months. A successful partial snapshot ha
 Page scope does not request history. Missing availability metadata uses the legacy default.
 A failed summary remains an HTTP error with current-response evidence in problem `details`:
 `cost_cents: null` is an unknown total, while `known_summary_cost_cents` is confirmed.
+
+## Versioned retained history export (Unreleased)
+
+Opt in with version 2 to retain report quality, metric versions, frozen selection
+and signed continuation cursors. Keep stream, basis, from/to and keyword selection
+unchanged on every page. The default remains legacy v1 rows. Observations include
+bounded normalized items; opaque CID strings retain all original digits. The
+recorded-at attempts stream also contains actual run/item variants without checks,
+including cancelled, deferred and blocked outcomes. Full-project exports retain
+explicit project-only runs; selected exports report unresolved membership exclusions.
+CSV contains a complete bounded report manifest and accepts no cursor. Oversized
+sources fail with 413, and changed signed snapshots fail with 409.
+
+See the [rank-history contract](https://bisibility.com/docs/api/rank-history).
+
+The served MCP tool returns JSON. Complete CSV downloads use the REST API or SDK.
+
+### Retained Local reads
+
+The five read-only `list_local_monitor_runs`, `get_local_monitor_run_results`,
+`list_local_monitor_point_listings`, `list_local_monitor_point_history` and
+`export_local_monitor_run` tools call the SDK's actual Local API methods. They preserve
+original `lmn`/`lmr`/`lmt` scope, null/unknown quality, exact string CID and retained
+source metadata. History `as_of`/`from`/`to` use canonical UTC milliseconds and
+`occurrence_created_at`; preserve the full selection with a signed cursor (1..8000
+characters). The export tool returns existing Local point-report-v1 JSON only. Reads
+never start provider work or schedules. These source changes are unreleased; packaged support follows the SDK release.
+
+### Reviewed defaults
+
+Use `preview_project_defaults` to read the current draft and impact; it performs no settings writes or provider work, but the server still requires settings permission. After the caller explicitly approves that draft, call `update_project_defaults` with the same settings and `review` containing the returned `expected_source_hash`, string `expected_revision`, `preview_token`, a stable `idempotency_key`, and `confirmed: true`. Missing confirmation returns 428; stale or expired reviews return 409. For a lost response, reuse the exact body and command key. The tools never confirm automatically.
+
+The SDK requires the server capability `features.reviewed_project_defaults: "v1"` before sending either preview or reviewed-update PATCH. It refuses older servers rather than risking a write disguised as preview. This marker does not grant settings permission.

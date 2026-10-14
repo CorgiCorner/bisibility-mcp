@@ -1,4 +1,6 @@
 import * as z from "zod/v4";
+import { defaultsReviewInputSchema } from "./defaults-review-schema.js";
+import { rankHistoryExportSchema } from "./rank-history-export-schema.js";
 
 export const publicIdPrefixes = [
   "agr",
@@ -15,6 +17,10 @@ export const publicIdPrefixes = [
   "key",
   "kw",
   "mbr",
+  "lmn",
+  "lmr",
+  "lmt",
+  "rcr",
   "ntf",
   "pat",
   "prj",
@@ -500,6 +506,7 @@ export const deleteProjectInputSchema = z
 export const updateProjectDefaultsInputSchema = z
   .object({
     ...requestOptionsInput,
+    review: defaultsReviewInputSchema.optional(),
     city: nullableLimitedText(120),
     country: optionalLimitedText(120),
     cron_expression: z
@@ -531,6 +538,17 @@ export const updateProjectDefaultsInputSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
+    if (
+      value.review &&
+      value.idempotency_key &&
+      value.review.idempotency_key !== value.idempotency_key
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Command keys must agree.",
+        path: ["idempotency_key"],
+      });
+    }
     if (value.frequency === "custom_cron" && !value.cron_expression) {
       ctx.addIssue({
         code: "custom",
@@ -938,19 +956,7 @@ export const getKeywordMetricsInputSchema = z
   })
   .strict();
 
-export const exportRankHistoryInputSchema = z
-  .object({
-    ...paginationInput,
-    granularity: z.enum(["daily", "weekly"]).optional(),
-    keyword_ids: z
-      .array(keywordIdInput)
-      .max(500)
-      .optional()
-      .describe("Tracked keyword ids to include in the export."),
-    project_id: projectIdInput,
-    range: z.enum(["30", "90", "all"]).optional(),
-  })
-  .strict();
+export const exportRankHistoryInputSchema = rankHistoryExportSchema(projectIdInput, keywordIdInput);
 
 export const listSitemapMonitorsInputSchema = z.object({ project_id: projectIdInput }).strict();
 
@@ -1765,3 +1771,14 @@ export const revokeMigrationTokenInputSchema = z
     token_id: migrationTokenIdInput,
   })
   .strict();
+
+const { review: _defaultsReview, ...defaultsDraftFields } = updateProjectDefaultsInputSchema.shape;
+export const previewProjectDefaultsInputSchema = z
+  .object(defaultsDraftFields)
+  .strict()
+  .superRefine((value, ctx) => {
+    const checked = updateProjectDefaultsInputSchema.safeParse(value);
+    if (!checked.success)
+      for (const issue of checked.error.issues)
+        ctx.addIssue({ code: "custom", path: issue.path, message: issue.message });
+  });

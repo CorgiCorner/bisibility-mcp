@@ -70,7 +70,7 @@ describe("createBisibilityMcpServer", () => {
     });
 
     expect(serverInstructions(server)).toContain(
-      "Session profile: read-only: true, toolsets: [projects, keywords], tools: 8; " +
+      "Session profile: read-only: true, toolsets: [projects, keywords], tools: 9; " +
         "write tools are hidden, not forbidden by the API.",
     );
   });
@@ -86,7 +86,7 @@ describe("createBisibilityMcpServer", () => {
         "alerts, analytics, backlinks, checks, competitors, domain-overview, keywords, " +
         "notifications, project-context, projects, prompt-explorer, providers, rank-history, " +
         "saved-keywords, saved-views, signals, site-audits, sitemaps, system, team, tokens, " +
-        "webhooks], tools: 132.",
+        "webhooks], tools: 140.",
     );
     expect(serverInstructions(server)).not.toContain("write tools are hidden");
   });

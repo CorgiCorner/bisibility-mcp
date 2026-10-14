@@ -1,0 +1,39 @@
+{
+  "id": "rcr_aaaaaaaaaaaaaaaaaaaaaaaa",
+  "project_id": "prj_aaaaaaaaaaaaaaaaaaaaaaaa",
+  "status": "blocked",
+  "outcome": null,
+  "terminal": false,
+  "polling_state": "blocked",
+  "trigger": "scheduled",
+  "counts_basis": "planned_or_unlaunched",
+  "counts": {
+    "requested": 1,
+    "total": 1,
+    "completed": 0,
+    "failed": 0,
+    "deferred": 0,
+    "skipped": 0,
+    "cancelled": 0
+  },
+  "keyword_count": 1,
+  "target_count": 1,
+  "planned_for": "2026-10-12T12:00:00.000Z",
+  "launched_at": null,
+  "started_at": null,
+  "finished_at": null,
+  "blocked_reason": "budget_exhausted",
+  "parent_run_id": null,
+  "cost_cents": null,
+  "usage": {
+    "actual": null,
+    "estimated": null,
+    "unit": "operations"
+  },
+  "native_estimate": {
+    "provider_id": null,
+    "unit": null,
+    "quantity": null,
+    "unknown_targets": 1
+  }
+}
