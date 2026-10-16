@@ -61,8 +61,11 @@ const aiAnalysisFields = {
   domain: z
     .string()
     .min(1)
-    .max(63)
-    .describe("Public hostname to inspect, without a scheme or path."),
+    .max(253)
+    .regex(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/)
+    .describe(
+      "Local citation-matching hostname, without a scheme or path. Domain searches remove a leading www. only from the provider filter and require at most 63 characters after removal; local matching keeps the full hostname. Brand searches and prompt comparisons allow up to 253.",
+    ),
   max_cost_cents: z
     .number()
     .int()
@@ -80,25 +83,49 @@ const aiAnalysisFields = {
     .default(false)
     .describe("Bypass the stored result and issue a new paid request when admitted."),
 };
-export const analyzeAiVisibilityInputSchema = z.strictObject({
-  ...aiAnalysisFields,
-  target_type: z
-    .enum(["brand", "domain"])
-    .default("domain")
-    .describe("Match a brand name or a domain."),
-  platform: z
-    .enum(["chat_gpt", "google"])
-    .default("chat_gpt")
-    .describe("Provider observed dataset: ChatGPT or Google AI Overview."),
-  location_code: z.number().int().min(1).default(2840).describe("Provider location code."),
-  language_code: z
-    .string()
-    .regex(/^[a-z]{2}(?:-[A-Z]{2})?$/)
-    .default("en")
-    .describe("Dataset language."),
-  limit: z.number().int().min(1).max(20).default(10).describe("Maximum mention rows."),
-  idempotency_key: idempotencyKey,
-});
+export const analyzeAiVisibilityInputSchema = z
+  .strictObject({
+    ...aiAnalysisFields,
+    target_type: z
+      .enum(["brand", "domain"])
+      .default("domain")
+      .describe("Match a brand name or a domain."),
+    platform: z
+      .enum(["chat_gpt", "google"])
+      .default("chat_gpt")
+      .describe("Provider observed dataset: ChatGPT or Google AI Overview."),
+    location_code: z.number().int().min(1).default(2840).describe("Provider location code."),
+    language_code: z
+      .string()
+      .regex(/^[a-z]{2}(?:-[A-Z]{2})?$/)
+      .default("en")
+      .describe("Dataset language."),
+    limit: z.number().int().min(1).max(20).default(10).describe("Maximum mention rows."),
+    idempotency_key: idempotencyKey,
+  })
+  .superRefine((value, context) => {
+    const providerDomain = value.domain.replace(/^www\./, "");
+    if (value.target_type === "domain" && providerDomain.length > 63) {
+      context.addIssue({
+        code: "custom",
+        path: ["domain"],
+        message: "Domain searches require at most 63 characters after removing a leading www.",
+      });
+    }
+  })
+  .meta({
+    allOf: [
+      {
+        if: { properties: { target_type: { const: "domain" } } },
+        // biome-ignore lint/suspicious/noThenProperty: JSON Schema uses then for conditional validation.
+        then: {
+          properties: {
+            domain: { anyOf: [{ maxLength: 63 }, { pattern: "^www\\.", maxLength: 67 }] },
+          },
+        },
+      },
+    ],
+  });
 export const getAiResearchCatalogInputSchema = getProjectContextInputSchema;
 export const compareAiPromptsInputSchema = z
   .strictObject({

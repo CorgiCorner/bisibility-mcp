@@ -472,6 +472,7 @@ function loadMoreBacklinkRowsOptions(
   return omitUndefined({
     includeSubdomains: input.include_subdomains,
     limit: input.limit,
+    snapshotRef: input.snapshot_ref,
     target: input.target,
     targetScope: input.target_scope,
   }) as LoadMoreBacklinkRowsOptions;
@@ -1524,9 +1525,7 @@ export function registerBisibilityTools(
       access: "write",
       group: "backlinks",
       description:
-        "Requires API write scope. Extends the current unexpired backlinks snapshot at the " +
-        "per-100-row provider rate. Returns 409 snapshot_expired when no current snapshot exists; " +
-        "run analyze_backlinks first. This tool cannot extend failed current-response summary evidence.",
+        "Requires API write scope. Extends the current unexpired backlinks snapshot at the per-100-row provider rate. Requires the exact snapshot_ref from the latest successful analysis or append response; use the replacement reference returned by each append. Returns 409 snapshot_expired when no current snapshot exists. Stale, mismatched or expired references return 409 before provider work; read or analyze the current snapshot before retrying. This tool cannot extend failed current-response summary evidence.",
       inputSchema: loadMoreBacklinkRowsInputSchema,
       title: "Load more backlink rows",
     },

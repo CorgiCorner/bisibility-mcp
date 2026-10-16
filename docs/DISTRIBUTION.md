@@ -8,7 +8,7 @@ below retain their stated verification dates.
 | Channel | Status | Link | Version |
 | --- | --- | --- | --- |
 | npm | Published `0.16.0` | [@bisibility/mcp](https://www.npmjs.com/package/@bisibility/mcp) | `0.16.0` verified |
-| Official MCP Registry | Published `0.7.0`; `0.17.0` release target | [com.bisibility/mcp](https://registry.modelcontextprotocol.io/v0.1/servers?search=com.bisibility%2Fmcp) | `0.7.0` verified, `0.17.0` target |
+| Official MCP Registry | Published `0.7.0`; `0.17.1` release target | [com.bisibility/mcp](https://registry.modelcontextprotocol.io/v0.1/servers?search=com.bisibility%2Fmcp) | `0.7.0` verified, `0.17.1` target |
 | GitHub MCP Registry and VS Code | Pending downstream indexing | [GitHub MCP Registry](https://github.com/mcp) | `0.5.2` upstream |
 | Glama server | Listed, schema scan pending | [Open-source server](https://glama.ai/mcp/servers/CorgiCorner/bisibility-mcp) | `0.6.3` |
 | Glama connector | Listed, unhealthy - rescan required | [Hosted connector](https://glama.ai/mcp/connectors/com.bisibility/mcp) | Hosted |

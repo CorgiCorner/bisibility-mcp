@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.17.1 - 2026-10-16
+
+- Require the latest opaque snapshot_ref when appending backlink rows and preserve replacement references for subsequent appends.
+- Validate AI citation hostnames up to 253 characters, with a 63-character provider limit after removing a leading www. for domain searches.
+
 ## 0.17.0 - 2026-10-14
 
 - Add retained rank-check execution reads for cancelled, blocked and deferred outcomes without observations.

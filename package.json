@@ -1,6 +1,6 @@
 {
   "name": "@bisibility/mcp",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "mcpName": "com.bisibility/mcp",
   "description": "MCP server for the bisibility SEO API: research, backlinks, rankings, analytics, and automation.",
   "type": "module",
@@ -79,7 +79,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@bisibility/sdk": "^0.17.0",
+    "@bisibility/sdk": "^0.17.1",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "zod": "^4.4.3"
   },

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  analyzeAiVisibilityInputSchema,
+  compareAiPromptsInputSchema,
+} from "../src/research-workspace-schemas.js";
 import { publicId } from "./fixtures.js";
 
 import {
@@ -343,6 +347,7 @@ describe("tool input schemas", () => {
           include_subdomains: false,
           limit,
           project_id: publicId("prj"),
+          snapshot_ref: "opaque-reference",
           target: "https://example.com/pricing",
           target_scope: "page",
         }),
@@ -356,6 +361,7 @@ describe("tool input schemas", () => {
         loadMoreBacklinkRowsInputSchema.parse({
           limit,
           project_id: publicId("prj"),
+          snapshot_ref: "opaque-reference",
           target: "example.com",
         }),
       ).toThrow();
@@ -363,6 +369,7 @@ describe("tool input schemas", () => {
     expect(() =>
       loadMoreBacklinkRowsInputSchema.parse({
         project_id: publicId("prj"),
+        snapshot_ref: "opaque-reference",
         target: "example.com",
         target_scope: "domain",
       }),
@@ -370,10 +377,71 @@ describe("tool input schemas", () => {
     expect(() =>
       loadMoreBacklinkRowsInputSchema.parse({
         project_id: publicId("prj"),
+        snapshot_ref: "opaque-reference",
         target: "example.com",
         unexpected: true,
       }),
     ).toThrow();
+  });
+
+  it("requires a nonempty bounded snapshot_ref without modifying its opaque value", () => {
+    const input = { project_id: publicId("prj"), target: "example.com" };
+    for (const snapshot_ref of [undefined, "", "x".repeat(32769)]) {
+      expect(loadMoreBacklinkRowsInputSchema.safeParse({ ...input, snapshot_ref }).success).toBe(
+        false,
+      );
+    }
+    for (const snapshot_ref of [" opaque-reference ", "x".repeat(32768)]) {
+      expect(loadMoreBacklinkRowsInputSchema.parse({ ...input, snapshot_ref }).snapshot_ref).toBe(
+        snapshot_ref,
+      );
+    }
+  });
+
+  it("validates local citation hostnames for brand searches and prompt comparisons", () => {
+    const input = { project_id: publicId("prj"), brand: "Example", max_cost_cents: 0 };
+    const longest = `${"a".repeat(63)}.${"b".repeat(63)}.${"c".repeat(63)}.${"d".repeat(49)}.example.com`;
+    expect(longest.length).toBe(253);
+    for (const schemaInput of [
+      { schema: analyzeAiVisibilityInputSchema, extra: { target_type: "brand" } },
+      { schema: compareAiPromptsInputSchema, extra: { prompt: "Compare example tools" } },
+    ]) {
+      for (const domain of ["example.com", "www.example.org", "a-b.example.com", longest]) {
+        expect(
+          schemaInput.schema.safeParse({ ...input, ...schemaInput.extra, domain }).success,
+        ).toBe(true);
+      }
+      for (const domain of [
+        "https://example.com",
+        "example.com/path",
+        `a.${longest}`,
+        `${"a".repeat(64)}.example.com`,
+        "-a.example.com",
+        "example.com:443",
+      ]) {
+        expect(
+          schemaInput.schema.safeParse({ ...input, ...schemaInput.extra, domain }).success,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it("limits domain searches to 63 characters or 67 with a leading www", () => {
+    const input = { project_id: publicId("prj"), brand: "Example", max_cost_cents: 0 };
+    const host63 = `${"a".repeat(51)}.example.com`;
+    expect(host63.length).toBe(63);
+    for (const target_type of [undefined, "domain"]) {
+      for (const domain of [host63, `www.${host63}`]) {
+        expect(
+          analyzeAiVisibilityInputSchema.safeParse({ ...input, target_type, domain }).success,
+        ).toBe(true);
+      }
+      for (const domain of [`a${host63}`, `www.a${host63}`, `api.${host63}`]) {
+        expect(
+          analyzeAiVisibilityInputSchema.safeParse({ ...input, target_type, domain }).success,
+        ).toBe(false);
+      }
+    }
   });
 
   it("describes every backlinks input field", () => {

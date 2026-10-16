@@ -1487,6 +1487,7 @@ describe("registerBisibilityTools", () => {
     ).resolves.toMatchObject({ structuredContent: analyzed });
     await expect(
       callTool("load_more_backlink_rows", {
+        snapshot_ref: "opaque-reference",
         include_subdomains: false,
         limit: 300,
         project_id: publicId("prj"),
@@ -1496,6 +1497,7 @@ describe("registerBisibilityTools", () => {
     ).resolves.toMatchObject({ structuredContent: loaded });
     await expect(
       callTool("load_more_backlink_rows", {
+        snapshot_ref: "opaque-reference",
         project_id: publicId("prj"),
         target: "example.com",
       }),
@@ -1515,18 +1517,46 @@ describe("registerBisibilityTools", () => {
       target: "example.com",
     });
     expect(client.loadMoreBacklinkRows).toHaveBeenNthCalledWith(1, publicId("prj"), {
+      snapshotRef: "opaque-reference",
       includeSubdomains: false,
       limit: 300,
       target: "https://example.com/pricing",
       targetScope: "page",
     });
     expect(client.loadMoreBacklinkRows).toHaveBeenNthCalledWith(2, publicId("prj"), {
+      snapshotRef: "opaque-reference",
       target: "example.com",
     });
     expect(configs.get("analyze_backlinks")?.description).toContain("Requires API write scope");
     expect(configs.get("analyze_backlinks")?.description).toContain("estimate_only first");
     expect(configs.get("analyze_backlinks")?.description).toContain("within fetched rows");
     expect(configs.get("load_more_backlink_rows")?.description).toContain("snapshot_expired");
+  });
+
+  it("chains snapshot_ref from analysis and each append in text and structured results", async () => {
+    const { callTool, client } = createToolHarness();
+    client.analyzeBacklinks.mockResolvedValueOnce(
+      dataResponse(backlinksSnapshot({ snapshot_ref: "analysis-ref" })),
+    );
+    client.loadMoreBacklinkRows
+      .mockResolvedValueOnce(dataResponse(backlinksSnapshot({ snapshot_ref: "append-ref" })))
+      .mockResolvedValueOnce(dataResponse(backlinksSnapshot({ snapshot_ref: "next-ref" })));
+    const input = { project_id: publicId("prj"), target: "example.com" };
+    let result = await callTool("analyze_backlinks", input);
+    for (const snapshot_ref of ["analysis-ref", "append-ref"]) {
+      expect(result.structuredContent).toMatchObject({ data: { snapshot_ref } });
+      expect(parsedContent(result)).toMatchObject({ data: { snapshot_ref } });
+      result = await callTool("load_more_backlink_rows", { ...input, snapshot_ref });
+      expect(client.loadMoreBacklinkRows).toHaveBeenLastCalledWith(input.project_id, {
+        target: input.target,
+        snapshotRef: snapshot_ref,
+      });
+    }
+    expect(result.structuredContent).toMatchObject({ data: { snapshot_ref: "next-ref" } });
+    expect(parsedContent(result)).toMatchObject({ data: { snapshot_ref: "next-ref" } });
+    const missing = await callTool("load_more_backlink_rows", input);
+    expect(missing.isError).toBe(true);
+    expect(client.loadMoreBacklinkRows).toHaveBeenCalledTimes(2);
   });
 
   it("returns zod issues for invalid backlinks inputs without calling the SDK", async () => {
@@ -1538,6 +1568,7 @@ describe("registerBisibilityTools", () => {
       target: "example.com",
     });
     const loadMoreResult = await callTool("load_more_backlink_rows", {
+      snapshot_ref: "opaque-reference",
       limit: 150,
       project_id: publicId("prj"),
       target: "example.com",

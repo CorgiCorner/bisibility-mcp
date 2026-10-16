@@ -780,6 +780,13 @@ export const loadMoreBacklinkRowsInputSchema = z
       .optional()
       .describe("Number of additional rows to fetch, in multiples of 100 up to 1000."),
     project_id: projectIdInput.describe("Project id whose provider budget and snapshot are used."),
+    snapshot_ref: z
+      .string()
+      .min(1)
+      .max(32768)
+      .describe(
+        "Exact opaque snapshot_ref from the latest successful analysis or append response. Pass it unchanged; each append returns a replacement reference.",
+      ),
     target: z
       .string()
       .trim()
