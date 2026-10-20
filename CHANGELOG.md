@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.18.0 - 2026-10-20
+
+- Use `@bisibility/sdk` 0.18.0 and align the version with the 0.18 release of the Bisibility SDKs, CLI and MCP server.
+
 ## 0.17.1 - 2026-10-16
 
 - Require the latest opaque snapshot_ref when appending backlink rows and preserve replacement references for subsequent appends.
